@@ -9,7 +9,7 @@
 
   Notes:
     - Currently supports Azure US Government only.
-    - Is extensible to Azure Commercial and Azure Secret Cloud with minor adjustments.
+    - Is extensible to Azure Commercial with minor adjustments.
 
   Disclaimer:
     - This script is provided as-is and is not officially supported by Microsoft.

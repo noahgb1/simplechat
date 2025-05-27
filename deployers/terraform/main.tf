@@ -1,6 +1,6 @@
 ####################################################################################################
 # File:         main.tf
-# Description:  Terraform configuration for deploying the Simple Chat application on Azure Government. (Extensible for Azure Commercial and Azure Secret)
+# Description:  Terraform configuration for deploying the Simple Chat application on Azure Government. (Extensible for Azure Commercial)
 # Author:       Microsoft Federal
 # Created:      2025-May-15
 # Version:      <v1.0.0>

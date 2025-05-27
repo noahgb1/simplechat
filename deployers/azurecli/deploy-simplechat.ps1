@@ -42,7 +42,6 @@
             az cloud set --name AzureCloud
             az login --scope https://management.azure.com//.default
             az login --scope https://graph.microsoft.com//.default
-        - For Azure Secret (information is tented)
 #>
 <#
 ============================================
@@ -101,7 +100,7 @@ $ErrorActionPreference = "Stop"
 #---------------------------------------------------------------------------------------------
 # Configuration Variables - MODIFY THESE VALUES AS NEEDED
 #---------------------------------------------------------------------------------------------
-$globalWhichAzurePlatform = "AzureUSGovernment" # Set to "AzureUSGovernment" for Azure Government, "AzureCloud" for Azure Commercial, or "AzureSecret" for Azure Secret
+$globalWhichAzurePlatform = "AzureUSGovernment" # Set to "AzureUSGovernment" for Azure Government, "AzureCloud" for Azure Commercial
 $paramTenantId = "6bc5b33e-bc05-493c-b076-8f8ce1331511"
 $paramLocation = "usgovvirginia" # Primary Azure Government region for deployments (e.g., usgovvirginia, usgovarizona, usgovtexas)
 $paramResourceOwnerId = "John Doe" # used for tagging resources
