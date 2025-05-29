@@ -7,6 +7,11 @@
 
   <!-- Owner actions -->
   <div id="ownerActionsContainer" style="display:none">
+    <h5>Owner Actions</h5>
+    <!-- Transfer Ownership Button -->
+    <button id="transferOwnershipBtn" class="btn btn-warning btn-sm">
+      Transfer Ownership
+    </button>
     <button id="deleteWorkspaceBtn" class="btn btn-danger btn-sm">Delete Workspace</button>
     <!-- transfer ownership… -->
   </div>
@@ -174,7 +179,6 @@
           <div class="mb-3">
             <label for="roleSelect" class="form-label">Select Role</label>
             <select id="roleSelect" class="form-select">
-              <option value="Owner">Owner</option>
               <option value="Admin">Admin</option>
               <option value="DocumentManager">Document Manager</option>
             </select>
@@ -189,6 +193,40 @@
             Cancel
           </button>
           <button type="submit" class="btn btn-primary btn-sm">Save</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Transfer Ownership Modal -->
+<div class="modal fade" id="transferOwnershipModal" tabindex="-1">
+  <div class="modal-dialog">
+    <form id="transferOwnershipForm">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Transfer Ownership</h5>
+          <button
+            type="button"
+            class="btn-close"
+            data-bs-dismiss="modal"
+          ></button>
+        </div>
+        <div class="modal-body">
+          <p>Select a member to make the new owner:</p>
+          <select id="newOwnerSelect" class="form-select">
+            <!-- Will fill with members who are not the current owner. -->
+          </select>
+        </div>
+        <div class="modal-footer">
+          <button
+            type="button"
+            class="btn btn-secondary btn-sm"
+            data-bs-dismiss="modal"
+          >
+            Cancel
+          </button>
+          <button type="submit" class="btn btn-primary btn-sm">Transfer</button>
         </div>
       </div>
     </form>

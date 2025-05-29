@@ -4,6 +4,47 @@ from config import *
 from functions_authentication import *
 from functions_public_workspaces import *
 
+def get_user_details_from_graph(user_id):
+    """
+    Get user details (displayName, email) from Microsoft Graph API by user ID.
+    Returns a dict with displayName and email, or empty strings if not found.
+    """
+    try:
+        token = get_valid_access_token()
+        if not token:
+            return {"displayName": "", "email": ""}
+
+        if AZURE_ENVIRONMENT == "usgovernment":
+            user_endpoint = f"https://graph.microsoft.us/v1.0/users/{user_id}"
+        elif AZURE_ENVIRONMENT == "custom":
+            user_endpoint = f"{CUSTOM_GRAPH_URL_VALUE}/{user_id}"
+        else:
+            user_endpoint = f"https://graph.microsoft.com/v1.0/users/{user_id}"
+            
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        }
+
+        params = {
+            "$select": "id,displayName,mail,userPrincipalName"
+        }
+
+        response = requests.get(user_endpoint, headers=headers, params=params)
+        response.raise_for_status()
+
+        user_data = response.json()
+        email = user_data.get("mail") or user_data.get("userPrincipalName") or ""
+        
+        return {
+            "displayName": user_data.get("displayName", ""),
+            "email": email
+        }
+
+    except Exception as e:
+        print(f"Failed to get user details for {user_id}: {e}")
+        return {"displayName": "", "email": ""}
+
 def register_route_backend_public_workspaces(app):
     """
     Register all public-workspace–related API endpoints under '/api/public_workspaces/...'
@@ -382,7 +423,13 @@ def register_route_backend_public_workspaces(app):
         })
         # admins
         for aid in ws.get("admins", []):
-            results.append({"userId": aid, "displayName": "", "email": "", "role": "Admin"})
+            admin_details = get_user_details_from_graph(aid)
+            results.append({
+                "userId": aid, 
+                "displayName": admin_details["displayName"], 
+                "email": admin_details["email"], 
+                "role": "Admin"
+            })
         # doc managers
         for dm in ws.get("documentManagers", []):
             results.append({
