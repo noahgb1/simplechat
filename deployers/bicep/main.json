@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.35.1.17967",
-      "templateHash": "11020399680656669462"
+      "templateHash": "9827027614494550400"
     }
   },
   "parameters": {
@@ -41,7 +41,7 @@
       "minLength": 3,
       "maxLength": 24,
       "metadata": {
-        "description": "A persons name for tagging resources. e.g. John Doe"
+        "description": "A persons name for tagging resources. e.g. John Doe or johndoe@domain.com"
       }
     },
     "environment": {

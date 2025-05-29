@@ -39,7 +39,7 @@ param location string = resourceGroup().location
 
 @minLength(3)
 @maxLength(24)
-@description('A persons name for tagging resources. e.g. John Doe')
+@description('A persons name for tagging resources. e.g. John Doe or johndoe@domain.com')
 param resourceOwnerId string
 
 @minLength(3)
