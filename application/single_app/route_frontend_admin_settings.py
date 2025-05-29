@@ -267,6 +267,12 @@ def register_route_frontend_admin_settings(app):
                 'azure_apim_image_gen_deployment': form_data.get('azure_apim_image_gen_deployment', '').strip(),
                 'azure_apim_image_gen_api_version': form_data.get('azure_apim_image_gen_api_version', '').strip(),
 
+                # Redis Cache
+                'enable_redis_cache': form_data.get('enable_redis_cache') == 'on',
+                'redis_url': form_data.get('redis_url', '').strip(),
+                'redis_key': form_data.get('redis_key', '').strip(),
+                'redis_auth_type': form_data.get('redis_auth_type', '').strip(),
+
                 # Workspaces
                 'enable_user_workspace': form_data.get('enable_user_workspace') == 'on',
                 'enable_group_workspaces': form_data.get('enable_group_workspaces') == 'on',

@@ -718,6 +718,17 @@ function setupToggles() {
         });
     }
 
+    const enableRedisCache = document.getElementById('enable_redis_cache');
+    const redisSettingsDiv = document.getElementById('redis_cache_settings');
+    if (enableRedisCache && redisSettingsDiv) {
+        // Set initial state
+        redisSettingsDiv.style.display = enableRedisCache.checked ? 'block' : 'none';
+        enableRedisCache.addEventListener('change', function () {
+            redisSettingsDiv.style.display = this.checked ? 'block' : 'none';
+        });
+    }
+
+
     const enableEnhancedCitation = document.getElementById('enable_enhanced_citations');
     if (enableEnhancedCitation) {
         toggleEnhancedCitation(enableEnhancedCitation.checked);
@@ -859,7 +870,22 @@ function setupToggles() {
                 (this.value === 'key') ? 'block' : 'none';
             markFormAsModified();
         });
-    }}
+    }
+
+    // Redis auth type dropdown logic
+    const redisAuthType = document.getElementById('redis_auth_type');
+    if (redisAuthType) {
+        const redisKeyContainer = document.getElementById('redis_key_container');
+        // Set initial state on load
+        if (redisKeyContainer) {
+            redisKeyContainer.style.display = (redisAuthType.value === 'key') ? 'block' : 'none';
+        }
+        redisAuthType.addEventListener('change', function () {
+            if (redisKeyContainer) {
+                redisKeyContainer.style.display = (this.value === 'key') ? 'block' : 'none';
+            }
+        });
+    }
 
     if (enableGroupWorkspacesToggle && createGroupPermissionSettingDiv) {
         // Initial state
@@ -870,7 +896,7 @@ function setupToggles() {
             markFormAsModified();
         });
     }
-
+}
 
 function setupTestButtons() {
 
@@ -923,6 +949,37 @@ function setupTestButtons() {
             }
         });
     }
+
+    const testRedisBtn = document.getElementById('test_redis_button');
+    if (testRedisBtn) {
+        testRedisBtn.addEventListener('click', async () => {
+            const resultDiv = document.getElementById('test_redis_result');
+            resultDiv.innerHTML = 'Testing Redis...';
+
+            const payload = {
+                test_type: 'redis',
+                endpoint: document.getElementById('redis_url').value,
+                key: document.getElementById('redis_key').value
+            };
+
+            try {
+                const resp = await fetch('/api/admin/settings/test_connection', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await resp.json();
+                if (resp.ok) {
+                    resultDiv.innerHTML = `<span class="text-success">${data.message}</span>`;
+                } else {
+                    resultDiv.innerHTML = `<span class="text-danger">${data.error || 'Error testing Redis'}</span>`;
+                }
+            } catch (err) {
+                resultDiv.innerHTML = `<span class="text-danger">Error: ${err.message}</span>`;
+            }
+        });
+    }
+
 
     const testEmbeddingBtn = document.getElementById('test_embedding_button');
     if (testEmbeddingBtn) {
@@ -1393,6 +1450,8 @@ togglePassword('toggle_video_conn_str', 'video_files_storage_account_url');
 togglePassword('toggle_audio_conn_str', 'audio_files_storage_account_url');
 togglePassword('toggle_video_indexer_api_key', 'video_indexer_api_key');
 togglePassword('toggle_speech_service_key', 'speech_service_key');
+togglePassword('toggle_redis_key', 'redis_key');
+togglePassword('toggle_azure_apim_redis_subscription_key', 'azure_apim_redis_subscription_key');
 
 /**
  * Checks if this is a first-time setup based on critical settings
