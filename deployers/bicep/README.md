@@ -32,8 +32,9 @@ Azure OpenAI Access: If useExistingOpenAiInstance is true, ensure the specified 
 
 ## Deploy
 
-Create a resource group if you don't have one: az group create --name MySimpleChatRG --location usgovvirginia
-Deploy the Bicep file:
+(Optional) Create a resource group if you don't have one: az group create --name MySimpleChatRG --location usgovvirginia
+
+Deploy the Bicep file.
 
 ### azure cli
 
