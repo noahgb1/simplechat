@@ -271,7 +271,7 @@ resource appService 'Microsoft.Web/sites@2022-09-01' = {
     serverFarmId: appServicePlan.id
     httpsOnly: true
     siteConfig: {
-      linuxFxVersion: 'DOCKER|${acrLoginServer}/${imageName}'
+      linuxFxVersion: 'DOCKER|${acrLoginServer}:${imageName}'
       alwaysOn: appServicePlan.sku.tier != 'Free' && appServicePlan.sku.tier != 'Shared' && appServicePlan.sku.tier != 'Basic' // Example, P1V3 should be true
       ftpsState: 'FtpsOnly'
       minTlsVersion: '1.2'
