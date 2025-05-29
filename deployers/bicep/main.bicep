@@ -44,6 +44,13 @@ param resourceOwnerId string
 
 @minLength(3)
 @maxLength(3)
+@allowed([
+  'sbx'
+  'dev'
+  'tst'
+  'uat'
+  'prd'
+])
 @description('Environment identifier (e.g. sbx, dev, tst, uat, prd).')
 param environment string = 'sbx'
 
