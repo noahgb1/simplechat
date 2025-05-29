@@ -2,8 +2,6 @@
 
 This project provides a one-click deployment for Simple Chat to Azure Commercial.
 
-[](az bicep build --file main.bicep)
-
 ## BEFORE YOU DEPLOY MAKE SURE YOU READ THE README.md File
 
 There are pre-deploy manual steps that must be completed first.
