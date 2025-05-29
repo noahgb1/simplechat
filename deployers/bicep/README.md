@@ -57,11 +57,37 @@ az deployment group create `
 
 ### App Registration
 
-- Redirect URIs: Take appRegistrationRedirectUri1, appRegistrationRedirectUri2, and appRegistrationLogoutUrl from the Bicep deployment output and add them to your Entra App Registration under "Authentication" > "Web" > "Redirect URIs" and "Front-channel logout URL".
+- Manage > Authentication
 
-- API Permissions Grant Consent: In the App Registration > "API permissions", grant admin consent for the configured permissions if not already done.
+    Web Redirect Url example:
 
-- Create all appRoles per documentation.
+      <https://web-8000.azurewebsites.us/.auth/login/aad/callback>
+
+      <https://web-8000.azurewebsites.us/getAToken>
+
+    Front-channel logout URL: <https://web-8000.azurewebsites.us/logout>
+
+    Implicit grant and hyrbid flows:
+
+    Access tokens: Check this
+
+    ID tokens: Check this
+
+    Supported account types: Accounts in this organization directly only
+
+    Advanced Settings > Allow public client flows > Enable the following mobile and desktop flows: No
+
+- Manage > Certificates & secrets
+  
+  You will see 2 secrets here in the end. One created by you pre-deployment and one created when you add Authentication to the App Service.
+
+- Manage > Token configuration: Nothing to do here. Leave empty.
+
+- Manage > API Permissions: Click "Grant Admin Consent for tenant" to all deletgated permissions
+
+- Manage > Expose an API: Nothing to do here. Leave empty.
+
+- Manage > App Roles: You should see the following app roles: [FeedbackAdmin, Safety Violation Admin, Create Group, Users, Admins]
 
 ### Entra Security Groups
 
@@ -70,7 +96,18 @@ az deployment group create `
 ### App Service
 
 - Authentication
-  - The script has comments about az webapp auth update and az webapp auth microsoft update. The Bicep file includes a basic authsettingsV2 block. You may need to refine this or use az cli commands post-deployment for a more advanced auth setup as hinted in the script, especially if the simple Bicep auth settings are not sufficient.
+  
+  Identity Provider: Microsoft
+
+  Choose a tenant for your application and its users: Workforce configuration (current tenant)
+
+  Pick an existing app registration in this directory: Select the app registration you created pre-deployment
+
+  Client secret expiration: Recommended 180 days
+
+  *** Leave all other values default
+
+  Note: Check App Setting "MICROSOFT_PROVIDER_AUTHENTICATION_SECRET" for a secret value created by configuring the Authentication. This secret will be added to your App Registration as well.
 
 - Restart & Test: Restart the App Service and test the Web UI.
 
@@ -78,6 +115,12 @@ az deployment group create `
 
 - Manually create 2 Indexes: Deploy your search index schemas (ai_search-index-group.json, ai_search-index-user.json) using Index as Json in the Azure portal.
 
+  Note: These files can be found in GitHub repository folder /deployers/bicep/artifacts
+
 ### Admin center in Web UI application
 
-- Navigate to the Web UI > Admin and configure the settings.
+- Open a browser and navigate to the url of the Azure App Service default domain.
+
+- Once you have logged into the application, navigate to "Admin" and configure the settings.
+
+  Note: If you cannot login or see the Admin link, make sure you have added yourself to the Enterprise Application (Assigned users and groups) users for the App Registration you created. Make sure you have assigned your user account to the "Admin" app role.
