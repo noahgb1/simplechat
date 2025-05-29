@@ -109,7 +109,31 @@ az deployment group create `
 
   Note: Check App Setting "MICROSOFT_PROVIDER_AUTHENTICATION_SECRET" for a secret value created by configuring the Authentication. This secret will be added to your App Registration as well.
 
+- Deployment Center
+
+  The deployer can get messed up here. Make sure the correct values are being displayed for your registry settings.
+
+  Container Type: Single Container
+
+  Registry source: Azure Container Registry
+
+  Subscription Id: [Your subscription]
+
+  Authentication: Managed Identity
+
+  Identity: Managed identity deployer deployed
+
+  Registry: [Name of the ACR: e.g. SomeRegistry]
+
+  Image: simplechat
+
+  Tag: 2025-05-29_1
+
+  Startup file or command: [Blank]
+
 - Restart & Test: Restart the App Service and test the Web UI.
+
+- Open Monitoring > Log stream and make sure the container has loaded and is ready.
 
 ### Azure AI Search
 
