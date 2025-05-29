@@ -131,7 +131,7 @@ def register_route_backend_public_workspaces(app):
         mapped = []
         for ws in slice_ws:
             # determine userRole
-            if ws["owner"]["id"] == user_id:
+            if ws["owner"]["userId"] == user_id:
                 role = "Owner"
             elif user_id in ws.get("admins", []):
                 role = "Admin"
@@ -206,7 +206,7 @@ def register_route_backend_public_workspaces(app):
         ws = find_public_workspace_by_id(ws_id)
         if not ws:
             return jsonify({"error": "Workspace not found"}), 404
-        if ws["owner"]["id"] != user_id:
+        if ws["owner"]["userId"] != user_id:
             return jsonify({"error": "Only owner can update"}), 403
 
         data = request.get_json() or {}
@@ -236,7 +236,7 @@ def register_route_backend_public_workspaces(app):
         ws = find_public_workspace_by_id(ws_id)
         if not ws:
             return jsonify({"error": "Workspace not found"}), 404
-        if ws["owner"]["id"] != user_id:
+        if ws["owner"]["userId"] != user_id:
             return jsonify({"error": "Only owner can delete"}), 403
 
         delete_public_workspace(ws_id)
@@ -266,7 +266,7 @@ def register_route_backend_public_workspaces(app):
 
         # verify membership
         is_member = (
-            ws["owner"]["id"] == user_id or
+            ws["owner"]["userId"] == user_id or
             user_id in ws.get("admins", []) or
             any(dm["userId"] == user_id for dm in ws.get("documentManagers", []))
         )
@@ -294,7 +294,7 @@ def register_route_backend_public_workspaces(app):
             return jsonify({"error": "Not found"}), 404
 
         role = (
-            "Owner" if ws["owner"]["id"] == user_id else
+            "Owner" if ws["owner"]["userId"] == user_id else
             "Admin" if user_id in ws.get("admins", []) else
             None
         )
@@ -357,7 +357,7 @@ def register_route_backend_public_workspaces(app):
             return jsonify({"error": "Not found"}), 404
 
         role = (
-            "Owner" if ws["owner"]["id"] == user_id else
+            "Owner" if ws["owner"]["userId"] == user_id else
             "Admin" if user_id in ws.get("admins", []) else
             None
         )
@@ -403,7 +403,7 @@ def register_route_backend_public_workspaces(app):
 
         # must be member
         is_member = (
-            ws["owner"]["id"] == user_id or
+            ws["owner"]["userId"] == user_id or
             user_id in ws.get("admins", []) or
             any(dm["userId"] == user_id for dm in ws.get("documentManagers", []))
         )
@@ -416,7 +416,7 @@ def register_route_backend_public_workspaces(app):
         results = []
         # owner
         results.append({
-            "userId": ws["owner"]["id"],
+            "userId": ws["owner"]["userId"],
             "displayName": ws["owner"].get("displayName", ""),
             "email": ws["owner"].get("email", ""),
             "role": "Owner"
@@ -470,7 +470,7 @@ def register_route_backend_public_workspaces(app):
             return jsonify({"error": "Not found"}), 404
 
         role = (
-            "Owner" if ws["owner"]["id"] == user_id else
+            "Owner" if ws["owner"]["userId"] == user_id else
             "Admin" if user_id in ws.get("admins", []) else
             None
         )
@@ -519,7 +519,7 @@ def register_route_backend_public_workspaces(app):
 
         # only Owner/Admin can remove others
         role = (
-            "Owner" if ws["owner"]["id"] == user_id else
+            "Owner" if ws["owner"]["userId"] == user_id else
             "Admin" if user_id in ws.get("admins", []) else
             None
         )
@@ -559,7 +559,7 @@ def register_route_backend_public_workspaces(app):
             return jsonify({"error": "Not found"}), 404
 
         role = (
-            "Owner" if ws["owner"]["id"] == user_id else
+            "Owner" if ws["owner"]["userId"] == user_id else
             "Admin" if user_id in ws.get("admins", []) else
             None
         )
@@ -609,7 +609,7 @@ def register_route_backend_public_workspaces(app):
         ws = find_public_workspace_by_id(ws_id)
         if not ws:
             return jsonify({"error": "Not found"}), 404
-        if ws["owner"]["id"] != user_id:
+        if ws["owner"]["userId"] != user_id:
             return jsonify({"error": "Forbidden"}), 403
 
         # must be existing documentManager or admin
@@ -621,11 +621,25 @@ def register_route_backend_public_workspaces(app):
             return jsonify({"error": "New owner must be a manager or admin"}), 400
 
         # swap
-        old_owner = ws["owner"]["id"]
-        ws["owner"] = next(
-            dm for dm in ws.get("documentManagers", [])
-            if dm["userId"] == new_owner
+        old_owner = ws["owner"]["userId"]
+        
+        # Get the new owner details - check if they're a documentManager first, then admin
+        new_owner_dm = next(
+            (dm for dm in ws.get("documentManagers", []) if dm["userId"] == new_owner), 
+            None
         )
+        
+        if new_owner_dm:
+            # New owner is a documentManager
+            ws["owner"] = new_owner_dm
+        else:
+            # New owner must be an admin - get their details from Microsoft Graph
+            admin_details = get_user_details_from_graph(new_owner)
+            ws["owner"] = {
+                "userId": new_owner,
+                "displayName": admin_details["displayName"],
+                "email": admin_details["email"]
+            }
         # remove new_owner from docManagers/admins
         ws["documentManagers"] = [dm for dm in ws["documentManagers"] if dm["userId"] != new_owner]
         if new_owner in ws.get("admins", []):
@@ -658,7 +672,7 @@ def register_route_backend_public_workspaces(app):
         ws = find_public_workspace_by_id(ws_id)
         if not ws:
             return jsonify({"error": "Not found"}), 404
-        if ws["owner"]["id"] != user_id:
+        if ws["owner"]["userId"] != user_id:
             return jsonify({"error": "Forbidden"}), 403
 
         query = "SELECT VALUE COUNT(1) FROM d WHERE d.public_workspace_id = @wsId"
