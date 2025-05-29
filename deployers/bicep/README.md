@@ -12,7 +12,15 @@ Go to Azure portal > Microsoft Entra ID > App registrations > New registration.
 - Once created, note down the Application (client) ID (this is appRegistrationClientId parameter).
 - Go to "Certificates & secrets" > "New client secret" > Create a secret and copy its Value immediately (this is appRegistrationClientSecret parameter).
 - **** NO **** Go to "Token configuration" and enable "ID tokens" and "Access tokens" for implicit grant and hybrid flows if needed by your app (the script attempts az ad app update --enable-id-token-issuance true --enable-access-token-issuance true).
-- The script also adds API permissions (User.Read, profile, email to Microsoft Graph) and attempts to add owners. These should be configured manually on the App Registration.
+- The script also adds API permissions for Microsoft Graph and attempts to add owners. These should be configured manually on the App Registration.
+  - User.Read, Delegated
+  - profile, Delegated
+  - email, Delegated
+  - Group.Read.All, Delegated
+  - offline_access, Delegated
+  - openid, Delegated
+  - People.Read.All, Delegated
+  - User.ReadBasic.All, Delegated
 - The script also references appRegistrationRoles.json. If your application defines app roles, configure these in the App Registration manifest.
 - Obtain the Object ID of the Service Principal associated with this App Registration: az ad sp show --id <Your-App-Registration-Client-ID> --query id -o tsv. This will be the appRegistrationSpObjectId parameter.
 
