@@ -15,42 +15,55 @@
     - This script is provided as-is and is not officially supported by Microsoft.
     - It is intended for educational purposes and may require modifications to fit specific use cases.
     - Ensure you have the necessary permissions and configurations in your Azure environment before deploying.
-===============================================================================
+
+=============================================================================== 
 */
 
 
-// main.bicep
+/* PARAMETERS
+=============================================================================== */
 @description('Specifies the Azure environment platform.')
 @allowed([
   'AzureCloud'
   'AzureUSGovernment'
-  // 'AzureSecret' // Endpoint details for AzureSecret would need to be added if used
 ])
 param azurePlatform string = 'AzureUSGovernment'
 
 @description('Tenant ID where the resources are deployed and for App Registration.')
-param tenantId string
+param tenantId string = subscription().tenantId
 
+@minLength(1)
+@maxLength(90)
 @description('Primary Azure region for deployments.')
 param location string = resourceGroup().location
 
-@description('Used for tagging resources.')
+@minLength(3)
+@maxLength(24)
+@description('A persons name for tagging resources. e.g. John Doe')
 param resourceOwnerId string
 
-@description('Environment identifier (e.g., dev, test, prod, uat).')
+@minLength(3)
+@maxLength(3)
+@description('Environment identifier (e.g. sbx, dev, tst, uat, prd).')
 param environment string = 'sbx'
 
-@description('A short base name for your organization or project (e.g., contoso1, projectx2). Used to construct resource names.')
+@minLength(1)
+@maxLength(8)
+@description('A short base name (1-8 alphanumeric characters) for your organization or project (e.g., contoso1, projectx2). Used to construct resource names.')
 param baseName string
 
-@description('Name of the existing Azure Container Registry (ACR).')
+@minLength(5)
+@maxLength(50)
+@description('Name of the existing Azure Container Registry (ACR). e.g. contosoacr1')
 param acrName string
 
+@minLength(1)
+@maxLength(90)
 @description('Name of the existing Resource Group housing Azure Container Registry (ACR).')
 param acrResourceGroupName string
 
 @description('Full image name and tag from ACR (e.g., simple-chat:2025-05-15_7).')
-param imageName string // e.g., 'simple-chat:2025-05-15_7'
+param imageName string
 
 @description('Flag to determine if an existing Azure OpenAI instance should be used.')
 param useExistingOpenAiInstance bool = true
@@ -78,6 +91,12 @@ param appRegistrationSpObjectId string = ''
 @description('SKU for the App Service Plan.')
 param appServicePlanSku string = 'P1V3' // For Linux, ensure this SKU is available.
 
+@allowed([
+  'Standard_LRS'
+  'Standard_GRS'
+  'Standard_ZRS'
+  'Premium_LRS'
+])
 @description('SKU for the Storage Account.')
 param storageSku string = 'Standard_LRS'
 
@@ -96,11 +115,9 @@ param searchSku string = 'basic'
 @description('The UTC date and time when the deployment was started.')
 param createdDateTime string = utcNow('yyyy-MM-dd HH:mm:ss')
 
-//@description('A unique subdomain name for Document Intelligence.')
-//param docIntel_SubDomainName string = newGuid()
 
-
-// --- Tags ---
+/* VARIABLES
+=============================================================================== */
 var tags = {
   Environment: environment
   Owner: resourceOwnerId
@@ -109,13 +126,10 @@ var tags = {
 }
 
 // --- Naming Conventions (simplified from PowerShell functions) ---
-//var rgName = resourceGroup().name // Assuming deployment to an existing RG as per script.
 var resourceNamePrefix = toLower('${baseName}-${environment}')
 var uniqueStringForGlobals = uniqueString(resourceGroup().id, baseName, environment) // For globally unique names
-
 var logAnalyticsName = '${resourceNamePrefix}-la'
 var appInsightsName = '${resourceNamePrefix}-ai'
-//var keyVaultName = '${resourceNamePrefix}-kv-${uniqueStringForGlobals}' // KV names are globally unique
 var keyVaultName = 'kv${uniqueStringForGlobals}' // KV names are globally unique
 var storageAccountName = toLower('${replace(baseName, '-', '')}${environment}sa${substring(uniqueStringForGlobals, 0, 5)}') // Strict naming: 3-24 chars, lowercase alphanumeric
 var managedIdentityName = '${resourceNamePrefix}-id'
@@ -125,22 +139,19 @@ var cosmosDbName = '${resourceNamePrefix}-cosmos-${uniqueStringForGlobals}' // C
 var openAIName = useExistingOpenAiInstance ? existingAzureOpenAiResourceName : '${resourceNamePrefix}-oai'
 var docIntelName = '${resourceNamePrefix}-docintel'
 var searchServiceName = '${resourceNamePrefix}-search-${uniqueStringForGlobals}' // Search names are globally unique
-
-
-// --- Environment Specific Suffixes/Endpoints ---
 var acrLoginServer = '${acrName}${azurePlatform == 'AzureUSGovernment' ? '.azurecr.us' : '.azurecr.io'}'
 var appServiceDefaultHostName = '${appServiceName}${azurePlatform == 'AzureUSGovernment' ? '.azurewebsites.us' : '.azurewebsites.net'}'
 var cosmosDbEndpointSuffix = azurePlatform == 'AzureUSGovernment' ? '.documents.azure.us' : '.documents.azure.com'
 var openAIEndpointSuffix = azurePlatform == 'AzureUSGovernment' ? '.openai.azure.us' : '.openai.azure.com'
 var azureEndpointNameForAppSetting = azurePlatform == 'AzureUSGovernment' ? 'usgovernment' : 'azurecloud'
 //var graphEndpoint = azurePlatform == 'AzureUSGovernment' ? 'https://graph.microsoft.us' : 'https://graph.microsoft.com'
-
 var appServiceRedirectUri1 = 'https://${appServiceDefaultHostName}/.auth/login/aad/callback'
 var appServiceRedirectUri2 = 'https://${appServiceDefaultHostName}/getAToken'
 var appServiceLogoutUrl = 'https://${appServiceDefaultHostName}/logout'
 
 
-// ============================= RESOURCES =============================
+/* RESOURCES
+=============================================================================== */
 
 // --- Log Analytics Workspace ---
 resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
@@ -338,21 +349,6 @@ resource cosmosDb 'Microsoft.DocumentDB/databaseAccounts@2023-11-15' = {
     // The script mentions 'enable-prpp-autoscale True' - this is usually for child resources (db/container)
     // For account level, burst capacity is the closest. Autoscale is set on database or container.
   }
-  // Script doesn't create DBs/Containers, assumes Web UI does. If needed:
-  // resource cosmosDbSqlDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2023-11-15' = {
-  //   parent: cosmosDb
-  //   name: 'SimpleChatDb'
-  //   properties: {
-  //     resource: {
-  //       id: 'SimpleChatDb'
-  //     }
-  //     options: { // For autoscale or throughput
-  //       autoscaleSettings: {
-  //         maxThroughput: 4000 // Example
-  //       }
-  //     }
-  //   }
-  // }
 }
 
 // --- Azure OpenAI Service (Cognitive Services Account) ---
@@ -519,40 +515,29 @@ resource appRegSpToOpenAIAccess_Contributor 'Microsoft.Authorization/roleAssignm
   }
 }
 
-// resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = {
-//   name: acrName
-//   scope: resourceGroup(acrResourceGroupName)
-// }
 
-
-// ============================= OUTPUTS =============================
+/* OUTPUTS
+=============================================================================== */
 output tenantId string = tenantId
 output existingAzureOpenAiResourceName string = existingAzureOpenAiResourceName
 output existingAzureOpenAiResourceGroupName string = existingAzureOpenAiResourceGroupName
 output cognitiveServicesSku string = cognitiveServicesSku
-
 output acrResourceGroupName string = acrResourceGroupName
 output appServiceName string = appService.name
 output appServiceHostName string = appService.properties.defaultHostName
-output appServicePrincipalId string = appService.identity.principalId // System-Assigned MI
+output appServicePrincipalId string = appService.identity.principalId
 output userAssignedIdentityPrincipalId string = managedIdentity.properties.principalId
 output keyVaultName string = keyVault.name
 output keyVaultUri string = keyVault.properties.vaultUri
 output storageAccountName string = storageAccount.name
 output cosmosDbName string = cosmosDb.name
 output cosmosDbEndpoint string = cosmosDb.properties.documentEndpoint
-
 @description('Redirect URI 1 for manual App Registration configuration.')
 output appRegistrationRedirectUri1 string = appServiceRedirectUri1
 @description('Redirect URI 2 for manual App Registration configuration.')
 output appRegistrationRedirectUri2 string = appServiceRedirectUri2
 @description('Logout URL for manual App Registration configuration.')
 output appRegistrationLogoutUrl string = appServiceLogoutUrl
-
-// Output for OpenAI (either existing or newly created)
 output azureOpenAiEndpoint string = useExistingOpenAiInstance ? 'https://${existingAzureOpenAiResourceName}${openAIEndpointSuffix}' : 'https://${openAIName}${openAIEndpointSuffix}'
-//output azureOpenAiApiType string = 'azure'
-//output azureOpenAiApiVersion string = '2023-05-15' // Example, check latest for your models
-
-//output documentIntelligenceEndpoint string = cognitiveServicesDocIntel.properties.endpoint
+output documentIntelligenceEndpoint string = cognitiveServicesDocIntel.properties.endpoint
 output searchServiceEndpoint string = 'https://${searchServiceName}.search.windows.net/' // Suffix may vary by platform
