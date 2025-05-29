@@ -60,8 +60,8 @@
 
 {% block scripts %}
   <script>
-    const workspaceId = "{{ workspace_id }}";
-    const userId = "{{ session['user'].get('oid') }}";
+    window.workspaceId = "{{ workspace_id }}";
+    window.userId = "{{ session['user'].get('oid') }}";
   </script>
   <script src="{{ url_for('static', filename='js/public/manage_public_workspace.js') }}"></script>
 {% endblock %}
