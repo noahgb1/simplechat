@@ -141,6 +141,10 @@ az deployment group create `
 
   Note: These files can be found in GitHub repository folder /deployers/bicep/artifacts
 
+### Existing Open AI (Option)
+
+- Make sure the Managed Idenity and the Entra App Registration have been added to the Open AI Instance IAM with RBAC Roles [Cognitive Services Contributor, Cognitive Services OpenAI User, Cognitive Services User]
+
 ### Admin center in Web UI application
 
 - Open a browser and navigate to the url of the Azure App Service default domain.
