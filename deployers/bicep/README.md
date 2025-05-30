@@ -109,7 +109,7 @@ az deployment group create `
 
   Note: Check App Setting "MICROSOFT_PROVIDER_AUTHENTICATION_SECRET" for a secret value created by configuring the Authentication. This secret will be added to your App Registration as well.
 
-- Deployment Center
+- Deployment Center > Registry Settings (These sometimes get screwed up during a deploy. Make sure these values are correct.)
 
   The deployer can get messed up here. Make sure the correct values are being displayed for your registry settings.
 
