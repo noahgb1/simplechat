@@ -132,6 +132,13 @@ var tags = {
   Project: 'SimpleChat'
 }
 
+var clientSecretSettingName = 'MICROSOFT_PROVIDER_AUTHENTICATION_SECRET'
+var openIdIssuerUrl = 'https://login.microsoftonline${azurePlatform == 'AzureUSGovernment' ? '.us' : '.com'}/${tenantId}/v2.0'
+
+var docIntelEndpointSuffix = azurePlatform == 'AzureUSGovernment' ? '.cognitiveservices.azure.us' : '.cognitiveservices.azure.com'
+var azureSearchEndpointSuffix = azurePlatform == 'AzureUSGovernment' ? '.search.azure.us' : '.search.windows.net'
+
+
 // --- Naming Conventions (simplified from PowerShell functions) ---
 var resourceNamePrefix = toLower('${baseName}-${environment}')
 var uniqueStringForGlobals = uniqueString(resourceGroup().id, baseName, environment) // For globally unique names
@@ -277,29 +284,81 @@ resource appService 'Microsoft.Web/sites@2022-09-01' = {
       minTlsVersion: '1.2'
       acrUseManagedIdentityCreds: true
       acrUserManagedIdentityID: managedIdentity.properties.clientId // Client ID of the UAMI
-      appSettings: [
-        { name: 'APPINSIGHTS_INSTRUMENTATIONKEY', value: applicationInsights.properties.InstrumentationKey }
-        { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: applicationInsights.properties.ConnectionString }
-        { name: 'AZURE_ENDPOINT', value: azureEndpointNameForAppSetting }
-        { name: 'SCM_DO_BUILD_DURING_DEPLOYMENT', value: 'true' }
-        { name: 'AZURE_COSMOS_AUTHENTICATION_TYPE', value: 'key' }
-        { name: 'AZURE_COSMOS_ENDPOINT', value: 'https://${cosmosDbName}${cosmosDbEndpointSuffix}' }
-        { name: 'AZURE_COSMOS_KEY', value: cosmosDb.listKeys().primaryMasterKey }
-        { name: 'TENANT_ID', value: tenantId }
-        { name: 'CLIENT_ID', value: appRegistrationClientId } // From pre-created App Registration
-        { name: 'SECRET_KEY', value: appRegistrationClientSecret } // From pre-created App Registration - THIS IS A SECRET
-        { name: 'WEBSITE_AUTH_AAD_ALLOWED_TENANTS', value: tenantId }
-        { name: 'DOCKER_REGISTRY_SERVER_URL', value: 'https://${acrLoginServer}' }
-        { name: 'DOCKER_REGISTRY_SERVER_PASSWORD', value: '' } // TODO
-        { name: 'DOCKER_REGISTRY_SERVER_USERNAME', value: '' } // TODO
-        { name: 'AZURE_OPENAI_ENDPOINT', value: useExistingOpenAiInstance ? 'https://${existingAzureOpenAiResourceName}${openAIEndpointSuffix}' : 'https://${openAIName}${openAIEndpointSuffix}' }
-        { name: 'AZURE_DOCUMENTINTELLIGENCE_ENDPOINT', value: 'https://${docIntelName}.cognitiveservices.azure.us/' } // TODO
-        { name: 'AZURE_SEARCH_SERVICE_ENDPOINT', value: 'https://${searchServiceName}.search.azure.us/' } // TODO
-        { name: 'AZURE_KEY_VAULT_ENDPOINT', value: keyVault.properties.vaultUri }
-      ]
     }
   }
 }
+
+resource appSettings 'Microsoft.Web/sites/config@2024-04-01' = {
+  name: 'appsettings'
+  parent: appService
+  properties: {
+    APPINSIGHTS_INSTRUMENTATIONKEY: applicationInsights.properties.InstrumentationKey
+    APPLICATIONINSIGHTS_CONNECTION_STRING: applicationInsights.properties.ConnectionString
+    AZURE_ENDPOINT: azureEndpointNameForAppSetting
+    SCM_DO_BUILD_DURING_DEPLOYMENT: 'true'
+    AZURE_COSMOS_AUTHENTICATION_TYPE: 'key'
+    AZURE_COSMOS_ENDPOINT: 'https://${cosmosDbName}${cosmosDbEndpointSuffix}'
+    AZURE_COSMOS_KEY: cosmosDb.listKeys().primaryMasterKey
+    TENANT_ID: tenantId
+    CLIENT_ID: appRegistrationClientId
+    SECRET_KEY: appRegistrationClientSecret
+    MICROSOFT_PROVIDER_AUTHENTICATION_SECRET: appRegistrationClientSecret
+    WEBSITE_AUTH_AAD_ALLOWED_TENANTS: tenantId
+    DOCKER_REGISTRY_SERVER_URL: 'https://${acrLoginServer}'
+    DOCKER_REGISTRY_SERVER_PASSWORD: ''
+    DOCKER_REGISTRY_SERVER_USERNAME: ''
+    AZURE_OPENAI_ENDPOINT: useExistingOpenAiInstance ? 'https://${existingAzureOpenAiResourceName}${openAIEndpointSuffix}' : 'https://${openAIName}${openAIEndpointSuffix}'
+    AZURE_DOCUMENTINTELLIGENCE_ENDPOINT: 'https://${docIntelName}${docIntelEndpointSuffix}/'
+    AZURE_SEARCH_SERVICE_ENDPOINT: 'https://${searchServiceName}${azureSearchEndpointSuffix}/'
+    AZURE_KEY_VAULT_ENDPOINT: keyVault.properties.vaultUri
+  }
+}
+
+resource authSettingsV2 'Microsoft.Web/sites/config@2024-04-01' = {
+  name: 'authsettingsV2'
+  parent: appService // Link to the parent web app
+  properties: {
+    globalValidation: {
+      requireAuthentication: true // Redirect unauthenticated requests to login
+      unauthenticatedClientAction: 'RedirectToLoginPage' // Action for unauthenticated clients
+      redirectToProvider: 'AzureActiveDirectory' // Default provider to redirect to
+    }
+    httpSettings: {
+      forwardProxy: {
+        convention: 'Standard' // or 'NoProxy'
+      }
+    }
+    identityProviders: {
+      azureActiveDirectory: {
+        enabled: true
+        registration: {
+          clientId: appRegistrationClientId
+          clientSecretSettingName: clientSecretSettingName // App setting name for client secret
+          openIdIssuer: openIdIssuerUrl
+        }
+        login: {
+          disableWWWAuthenticate: false
+        }
+        validation: {
+          allowedAudiences: [
+            'api://${appRegistrationClientId}' // Replace with your application's client ID or other allowed audiences
+            //'https://${appServiceName}${azurePlatform == 'AzureUSGovernment' ? '.azurewebsites.us' : '.azurewebsites.net'}'
+          ]
+        }
+      }
+    }
+    login: {
+      tokenStore: {
+        enabled: true // Enable token store to persist tokens
+      }
+    }
+    platform: {
+      enabled: true // Enable App Service Authentication/Authorization
+      runtimeVersion: '~1' // Or a specific runtime version
+    }
+  }
+}
+
 
 // --- Azure Cosmos DB account ---
 resource cosmosDb 'Microsoft.DocumentDB/databaseAccounts@2023-11-15' = {

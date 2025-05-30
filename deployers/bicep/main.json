@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.35.1.17967",
-      "templateHash": "7868136464351145390"
+      "templateHash": "5767581723379454643"
     }
   },
   "parameters": {
@@ -193,6 +193,10 @@
       "CreatedDateTime": "[parameters('createdDateTime')]",
       "Project": "SimpleChat"
     },
+    "clientSecretSettingName": "MICROSOFT_PROVIDER_AUTHENTICATION_SECRET",
+    "openIdIssuerUrl": "[format('https://login.microsoftonline{0}/{1}/v2.0', if(equals(parameters('azurePlatform'), 'AzureUSGovernment'), '.us', '.com'), parameters('tenantId'))]",
+    "docIntelEndpointSuffix": "[if(equals(parameters('azurePlatform'), 'AzureUSGovernment'), '.cognitiveservices.azure.us', '.cognitiveservices.azure.com')]",
+    "azureSearchEndpointSuffix": "[if(equals(parameters('azurePlatform'), 'AzureUSGovernment'), '.search.azure.us', '.search.windows.net')]",
     "resourceNamePrefix": "[toLower(format('{0}-{1}', parameters('baseName'), parameters('environment')))]",
     "uniqueStringForGlobals": "[uniqueString(resourceGroup().id, parameters('baseName'), parameters('environment'))]",
     "logAnalyticsName": "[format('{0}-la', variables('resourceNamePrefix'))]",
@@ -342,89 +346,91 @@
           "ftpsState": "FtpsOnly",
           "minTlsVersion": "1.2",
           "acrUseManagedIdentityCreds": true,
-          "acrUserManagedIdentityID": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName')), '2023-01-31').clientId]",
-          "appSettings": [
-            {
-              "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
-              "value": "[reference(resourceId('Microsoft.Insights/components', variables('appInsightsName')), '2020-02-02').InstrumentationKey]"
-            },
-            {
-              "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
-              "value": "[reference(resourceId('Microsoft.Insights/components', variables('appInsightsName')), '2020-02-02').ConnectionString]"
-            },
-            {
-              "name": "AZURE_ENDPOINT",
-              "value": "[variables('azureEndpointNameForAppSetting')]"
-            },
-            {
-              "name": "SCM_DO_BUILD_DURING_DEPLOYMENT",
-              "value": "true"
-            },
-            {
-              "name": "AZURE_COSMOS_AUTHENTICATION_TYPE",
-              "value": "key"
-            },
-            {
-              "name": "AZURE_COSMOS_ENDPOINT",
-              "value": "[format('https://{0}{1}', variables('cosmosDbName'), variables('cosmosDbEndpointSuffix'))]"
-            },
-            {
-              "name": "AZURE_COSMOS_KEY",
-              "value": "[listKeys(resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosDbName')), '2023-11-15').primaryMasterKey]"
-            },
-            {
-              "name": "TENANT_ID",
-              "value": "[parameters('tenantId')]"
-            },
-            {
-              "name": "CLIENT_ID",
-              "value": "[parameters('appRegistrationClientId')]"
-            },
-            {
-              "name": "SECRET_KEY",
-              "value": "[parameters('appRegistrationClientSecret')]"
-            },
-            {
-              "name": "WEBSITE_AUTH_AAD_ALLOWED_TENANTS",
-              "value": "[parameters('tenantId')]"
-            },
-            {
-              "name": "DOCKER_REGISTRY_SERVER_URL",
-              "value": "[format('https://{0}', variables('acrLoginServer'))]"
-            },
-            {
-              "name": "DOCKER_REGISTRY_SERVER_PASSWORD",
-              "value": ""
-            },
-            {
-              "name": "DOCKER_REGISTRY_SERVER_USERNAME",
-              "value": ""
-            },
-            {
-              "name": "AZURE_OPENAI_ENDPOINT",
-              "value": "[if(parameters('useExistingOpenAiInstance'), format('https://{0}{1}', parameters('existingAzureOpenAiResourceName'), variables('openAIEndpointSuffix')), format('https://{0}{1}', variables('openAIName'), variables('openAIEndpointSuffix')))]"
-            },
-            {
-              "name": "AZURE_DOCUMENTINTELLIGENCE_ENDPOINT",
-              "value": "[format('https://{0}.cognitiveservices.azure.us/', variables('docIntelName'))]"
-            },
-            {
-              "name": "AZURE_SEARCH_SERVICE_ENDPOINT",
-              "value": "[format('https://{0}.search.azure.us/', variables('searchServiceName'))]"
-            },
-            {
-              "name": "AZURE_KEY_VAULT_ENDPOINT",
-              "value": "[reference(resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName')), '2023-07-01').vaultUri]"
-            }
-          ]
+          "acrUserManagedIdentityID": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName')), '2023-01-31').clientId]"
         }
       },
       "dependsOn": [
-        "[resourceId('Microsoft.Insights/components', variables('appInsightsName'))]",
         "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]",
-        "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosDbName'))]",
-        "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]",
         "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Web/sites/config",
+      "apiVersion": "2024-04-01",
+      "name": "[format('{0}/{1}', variables('appServiceName'), 'appsettings')]",
+      "properties": {
+        "APPINSIGHTS_INSTRUMENTATIONKEY": "[reference(resourceId('Microsoft.Insights/components', variables('appInsightsName')), '2020-02-02').InstrumentationKey]",
+        "APPLICATIONINSIGHTS_CONNECTION_STRING": "[reference(resourceId('Microsoft.Insights/components', variables('appInsightsName')), '2020-02-02').ConnectionString]",
+        "AZURE_ENDPOINT": "[variables('azureEndpointNameForAppSetting')]",
+        "SCM_DO_BUILD_DURING_DEPLOYMENT": "true",
+        "AZURE_COSMOS_AUTHENTICATION_TYPE": "key",
+        "AZURE_COSMOS_ENDPOINT": "[format('https://{0}{1}', variables('cosmosDbName'), variables('cosmosDbEndpointSuffix'))]",
+        "AZURE_COSMOS_KEY": "[listKeys(resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosDbName')), '2023-11-15').primaryMasterKey]",
+        "TENANT_ID": "[parameters('tenantId')]",
+        "CLIENT_ID": "[parameters('appRegistrationClientId')]",
+        "SECRET_KEY": "[parameters('appRegistrationClientSecret')]",
+        "MICROSOFT_PROVIDER_AUTHENTICATION_SECRET": "[parameters('appRegistrationClientSecret')]",
+        "WEBSITE_AUTH_AAD_ALLOWED_TENANTS": "[parameters('tenantId')]",
+        "DOCKER_REGISTRY_SERVER_URL": "[format('https://{0}', variables('acrLoginServer'))]",
+        "DOCKER_REGISTRY_SERVER_PASSWORD": "",
+        "DOCKER_REGISTRY_SERVER_USERNAME": "",
+        "AZURE_OPENAI_ENDPOINT": "[if(parameters('useExistingOpenAiInstance'), format('https://{0}{1}', parameters('existingAzureOpenAiResourceName'), variables('openAIEndpointSuffix')), format('https://{0}{1}', variables('openAIName'), variables('openAIEndpointSuffix')))]",
+        "AZURE_DOCUMENTINTELLIGENCE_ENDPOINT": "[format('https://{0}{1}/', variables('docIntelName'), variables('docIntelEndpointSuffix'))]",
+        "AZURE_SEARCH_SERVICE_ENDPOINT": "[format('https://{0}{1}/', variables('searchServiceName'), variables('azureSearchEndpointSuffix'))]",
+        "AZURE_KEY_VAULT_ENDPOINT": "[reference(resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName')), '2023-07-01').vaultUri]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Insights/components', variables('appInsightsName'))]",
+        "[resourceId('Microsoft.Web/sites', variables('appServiceName'))]",
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosDbName'))]",
+        "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Web/sites/config",
+      "apiVersion": "2024-04-01",
+      "name": "[format('{0}/{1}', variables('appServiceName'), 'authsettingsV2')]",
+      "properties": {
+        "globalValidation": {
+          "requireAuthentication": true,
+          "unauthenticatedClientAction": "RedirectToLoginPage",
+          "redirectToProvider": "AzureActiveDirectory"
+        },
+        "httpSettings": {
+          "forwardProxy": {
+            "convention": "Standard"
+          }
+        },
+        "identityProviders": {
+          "azureActiveDirectory": {
+            "enabled": true,
+            "registration": {
+              "clientId": "[parameters('appRegistrationClientId')]",
+              "clientSecretSettingName": "[variables('clientSecretSettingName')]",
+              "openIdIssuer": "[variables('openIdIssuerUrl')]"
+            },
+            "login": {
+              "disableWWWAuthenticate": false
+            },
+            "validation": {
+              "allowedAudiences": [
+                "[format('api://{0}', parameters('appRegistrationClientId'))]"
+              ]
+            }
+          }
+        },
+        "login": {
+          "tokenStore": {
+            "enabled": true
+          }
+        },
+        "platform": {
+          "enabled": true,
+          "runtimeVersion": "~1"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/sites', variables('appServiceName'))]"
       ]
     },
     {
