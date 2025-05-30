@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.35.1.17967",
-      "templateHash": "6900345350147081384"
+      "templateHash": "9827027614494550400"
     }
   },
   "parameters": {
@@ -336,7 +336,7 @@
         "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]",
         "httpsOnly": true,
         "siteConfig": {
-          "linuxFxVersion": "[format('DOCKER|{0}:{1}', variables('acrLoginServer'), parameters('imageName'))]",
+          "linuxFxVersion": "[format('DOCKER|{0}/{1}', variables('acrLoginServer'), parameters('imageName'))]",
           "alwaysOn": "[and(and(not(equals(reference(resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName')), '2022-09-01', 'full').sku.tier, 'Free')), not(equals(reference(resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName')), '2022-09-01', 'full').sku.tier, 'Shared'))), not(equals(reference(resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName')), '2022-09-01', 'full').sku.tier, 'Basic')))]",
           "ftpsState": "FtpsOnly",
           "minTlsVersion": "1.2",
