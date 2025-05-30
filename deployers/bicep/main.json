@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.35.1.17967",
-      "templateHash": "9827027614494550400"
+      "templateHash": "7868136464351145390"
     }
   },
   "parameters": {
@@ -214,6 +214,7 @@
     "appServiceRedirectUri1": "[format('https://{0}/.auth/login/aad/callback', variables('appServiceDefaultHostName'))]",
     "appServiceRedirectUri2": "[format('https://{0}/getAToken', variables('appServiceDefaultHostName'))]",
     "appServiceLogoutUrl": "[format('https://{0}/logout', variables('appServiceDefaultHostName'))]",
+    "dockerRegistryUrl": "[format('{0}{1}', variables('acrLoginServer'), if(equals(parameters('azurePlatform'), 'AzureUSGovernment'), format('/{0}', parameters('imageName')), format(':{0}', parameters('imageName'))))]",
     "roles": {
       "keyVaultSecretsUser": "4633458b-17de-408a-b874-0445c86b69e6",
       "keyVaultSecretsOfficer": "b86a8fe4-44ce-4948-aee5-eccb2c1ادrole9",
@@ -336,7 +337,7 @@
         "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]",
         "httpsOnly": true,
         "siteConfig": {
-          "linuxFxVersion": "[format('DOCKER|{0}/{1}', variables('acrLoginServer'), parameters('imageName'))]",
+          "linuxFxVersion": "[format('DOCKER|{0}', variables('dockerRegistryUrl'))]",
           "alwaysOn": "[and(and(not(equals(reference(resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName')), '2022-09-01', 'full').sku.tier, 'Free')), not(equals(reference(resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName')), '2022-09-01', 'full').sku.tier, 'Shared'))), not(equals(reference(resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName')), '2022-09-01', 'full').sku.tier, 'Basic')))]",
           "ftpsState": "FtpsOnly",
           "minTlsVersion": "1.2",

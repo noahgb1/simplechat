@@ -155,7 +155,7 @@ var azureEndpointNameForAppSetting = azurePlatform == 'AzureUSGovernment' ? 'usg
 var appServiceRedirectUri1 = 'https://${appServiceDefaultHostName}/.auth/login/aad/callback'
 var appServiceRedirectUri2 = 'https://${appServiceDefaultHostName}/getAToken'
 var appServiceLogoutUrl = 'https://${appServiceDefaultHostName}/logout'
-
+var dockerRegistryUrl = '${acrLoginServer}${azurePlatform == 'AzureUSGovernment' ? '/${imageName}' : ':${imageName}'}'
 
 /* RESOURCES
 =============================================================================== */
@@ -271,7 +271,7 @@ resource appService 'Microsoft.Web/sites@2022-09-01' = {
     serverFarmId: appServicePlan.id
     httpsOnly: true
     siteConfig: {
-      linuxFxVersion: 'DOCKER|${acrLoginServer}/${imageName}'
+      linuxFxVersion: 'DOCKER|${dockerRegistryUrl}'
       alwaysOn: appServicePlan.sku.tier != 'Free' && appServicePlan.sku.tier != 'Shared' && appServicePlan.sku.tier != 'Basic' // Example, P1V3 should be true
       ftpsState: 'FtpsOnly'
       minTlsVersion: '1.2'
@@ -298,38 +298,7 @@ resource appService 'Microsoft.Web/sites@2022-09-01' = {
         { name: 'AZURE_KEY_VAULT_ENDPOINT', value: keyVault.properties.vaultUri }
       ]
     }
-    // Auth settings are complex with 'az webapp auth update' and 'az rest'.
-    // Basic AAD Auth can be configured here, but the script does more.
-    // Manual configuration or a deploymentScript for Graph API calls might be needed for full auth setup.
-    // properties: {
-    //   authsettingsV2: {
-    //     platform: {
-    //       enabled: true
-    //       runtimeVersion: '~1'
-    //     }
-    //     globalValidation: {
-    //       unauthenticatedClientAction: 'RedirectToLoginPage'
-    //       redirectToProvider: 'AzureActiveDirectory'
-    //     }
-    //     identityProviders: {
-    //       azureActiveDirectory: {
-    //         enabled: true
-    //         registration: {
-    //           openIdIssuer: 'https://login.microsoftonline.com/${tenantId}/v2.0' // Adjust for GovCloud if different
-    //           clientId: appRegistrationClientId
-    //           clientSecretSettingName: 'SECRET_KEY' // Refers to an app setting holding the secret
-    //         }
-    //         validation: {
-    //           allowedAudiences: [ 'api://${appRegistrationClientId}' ] // Example, verify correct audience
-    //         }
-    //       }
-    //     }
-    //   }
-    // }
   }
-  dependsOn: [
-    // ACR role assignment might be needed here if ACR is in different RG/Sub and MI needs time
-  ]
 }
 
 // --- Azure Cosmos DB account ---
