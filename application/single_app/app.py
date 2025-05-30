@@ -33,6 +33,8 @@ from route_backend_settings import *
 from route_backend_prompts import *
 from route_backend_group_prompts import *
 from route_backend_public_workspaces import *
+from route_backend_public_documents import *
+from route_backend_public_prompts import *
 
 # =================== Helper Functions ===================
 @app.before_first_request
@@ -177,6 +179,8 @@ register_route_backend_group_prompts(app)
 
 # ------------------- API Public Workspaces Routes ------
 register_route_backend_public_workspaces(app)
+register_route_backend_public_documents(app)
+register_route_backend_public_prompts(app)
 
 if __name__ == '__main__':
     settings = get_settings()
