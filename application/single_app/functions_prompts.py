@@ -237,19 +237,23 @@ def delete_prompt_doc(user_id, prompt_id, group_id=None):
     Delete a prompt for a user or a group.
     Returns True if deleted, False if not found.
     """
-    # For delete, we need to determine the prompt_type to find the item
-    # First try to find it in public prompts if group_id is provided
+    # For delete, we need to determine if this is a public, group, or user prompt
     item = None
+    
+    # Check if this is for a public workspace (public_prompt)
     if group_id is not None:
+        # First try as public prompt
         item = get_prompt_doc(user_id, prompt_id, 'public_prompt', group_id)
         if item:
             cosmos_container = cosmos_public_prompts_container
         else:
-            item = get_prompt_doc(user_id, prompt_id, None, group_id)
+            # Then try as group prompt
+            item = get_prompt_doc(user_id, prompt_id, 'group_prompt', group_id)
             if item:
                 cosmos_container = cosmos_group_prompts_container
     else:
-        item = get_prompt_doc(user_id, prompt_id, None, group_id)
+        # User prompt
+        item = get_prompt_doc(user_id, prompt_id, 'user_prompt', None)
         if item:
             cosmos_container = cosmos_user_prompts_container
     

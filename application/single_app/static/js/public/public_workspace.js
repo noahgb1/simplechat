@@ -92,6 +92,15 @@ document.addEventListener('DOMContentLoaded', ()=>{
   promptsClearBtn.onclick = ()=>{ publicPromptsSearchInput.value=''; publicPromptsSearchTerm=''; publicPromptsCurrentPage=1; fetchPublicPrompts(); };
   publicPromptsSearchInput.onkeypress = e=>{ if(e.key==='Enter') promptsApplyBtn.click(); };
 
+  // Add tab change event listeners to load data when switching tabs
+  document.getElementById('public-prompts-tab-btn').addEventListener('shown.bs.tab', () => {
+    if (activePublicId) fetchPublicPrompts();
+  });
+  
+  document.getElementById('public-docs-tab-btn').addEventListener('shown.bs.tab', () => {
+    if (activePublicId) fetchPublicDocs();
+  });
+
   Array.from(publicDropdownItems.children).forEach(()=>{}); // placeholder
 });
 
