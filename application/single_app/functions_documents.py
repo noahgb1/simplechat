@@ -270,7 +270,8 @@ def process_video_document(
     temp_file_path,
     original_filename,
     update_callback,
-    group_id
+    group_id,
+    public_workspace_id=None
 ):
     """
     Processes a video by dividing transcript into 30-second chunks,
@@ -303,7 +304,8 @@ def process_video_document(
                 document_id,
                 original_filename,
                 update_callback,
-                group_id
+                group_id,
+                public_workspace_id
             )
             update_callback(status=f"Enhanced citations: video at {blob_path}")
         except Exception as e:
@@ -2006,9 +2008,10 @@ def upload_to_blob(temp_file_path, user_id, document_id, blob_filename, update_c
 
 
 # --- Helper function to process TXT files ---
-def process_txt(document_id, user_id, temp_file_path, original_filename, enable_enhanced_citations, update_callback, group_id=None):
+def process_txt(document_id, user_id, temp_file_path, original_filename, enable_enhanced_citations, update_callback, group_id=None, public_workspace_id=None):
     """Processes plain text files."""
     is_group = group_id is not None
+    is_public_workspace = public_workspace_id is not None
 
     update_callback(status="Processing TXT file...")
     total_chunks_saved = 0
@@ -2023,7 +2026,9 @@ def process_txt(document_id, user_id, temp_file_path, original_filename, enable_
             "update_callback": update_callback
         }
 
-        if is_group:
+        if is_public_workspace:
+            args["public_workspace_id"] = public_workspace_id
+        elif is_group:
             args["group_id"] = group_id
 
         upload_to_blob(**args)
@@ -2430,9 +2435,10 @@ def process_single_tabular_sheet(df, document_id, user_id, file_name, update_cal
 
 
 # --- Helper function to process Tabular files (CSV, XLSX, XLS) ---
-def process_tabular(document_id, user_id, temp_file_path, original_filename, file_ext, enable_enhanced_citations, update_callback, group_id=None):
+def process_tabular(document_id, user_id, temp_file_path, original_filename, file_ext, enable_enhanced_citations, update_callback, group_id=None, public_workspace_id=None):
     """Processes CSV, XLSX, or XLS files using pandas."""
     is_group = group_id is not None
+    is_public_workspace = public_workspace_id is not None
 
     update_callback(status=f"Processing Tabular file ({file_ext})...")
     total_chunks_saved = 0
@@ -2447,7 +2453,9 @@ def process_tabular(document_id, user_id, temp_file_path, original_filename, fil
             "update_callback": update_callback
         }
 
-        if is_group:
+        if is_public_workspace:
+            args["public_workspace_id"] = public_workspace_id
+        elif is_group:
             args["group_id"] = group_id
 
         upload_to_blob(**args)
@@ -2802,7 +2810,8 @@ def process_audio_document(
     temp_file_path: str,
     original_filename: str,
     update_callback,
-    group_id=None
+    group_id=None,
+    public_workspace_id=None
 ) -> int:
     """Transcribe an audio file via Azure Speech, splitting >10 min into WAV chunks."""
 
@@ -2815,7 +2824,8 @@ def process_audio_document(
             document_id,
             original_filename,
             update_callback,
-            group_id
+            group_id,
+            public_workspace_id
         )
         update_callback(status=f"Enhanced citations: audio at {blob_path}")
 
@@ -2963,7 +2973,9 @@ def process_document_upload_background(document_id, user_id, temp_file_path, ori
             "update_callback": update_doc_callback
         }
 
-        if is_group:
+        if is_public_workspace:
+            args["public_workspace_id"] = public_workspace_id
+        elif is_group:
             args["group_id"] = group_id
 
         if file_ext == '.txt':
@@ -2983,7 +2995,8 @@ def process_document_upload_background(document_id, user_id, temp_file_path, ori
                 temp_file_path=temp_file_path,
                 original_filename=original_filename,
                 update_callback=update_doc_callback,
-                group_id=group_id
+                group_id=group_id,
+                public_workspace_id=public_workspace_id
             )
         elif file_ext in audio_extensions:
             total_chunks_saved = process_audio_document(
@@ -2992,7 +3005,8 @@ def process_document_upload_background(document_id, user_id, temp_file_path, ori
                 temp_file_path=temp_file_path,
                 original_filename=original_filename,
                 update_callback=update_doc_callback,
-                group_id=group_id
+                group_id=group_id,
+                public_workspace_id=public_workspace_id
             )
         elif file_ext in di_supported_extensions:
             total_chunks_saved = process_di_document(**args)
