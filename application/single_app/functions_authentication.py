@@ -14,10 +14,11 @@ def validate_token(token, audience):
 
     if AZURE_ENVIRONMENT == "usgovernment":
         issuer = f"https://login.microsoftonline.us/{EXTERNAL_APP_TENANT_ID}/v2.0"
+        jwks_url = f"https://login.microsoftonline.us/{EXTERNAL_APP_TENANT_ID}/discovery/v2.0/keys"
     else:
         issuer = f"https://login.microsoftonline.com/{EXTERNAL_APP_TENANT_ID}/v2.0"
+        jwks_url = f"https://login.microsoftonline.com/{EXTERNAL_APP_TENANT_ID}/discovery/v2.0/keys"
 
-    jwks_url = f"https://login.microsoftonline.com/{EXTERNAL_APP_TENANT_ID}/discovery/v2.0/keys"
     response = requests.get(jwks_url)
     #print(f"[JWKS DEBUG] Status: {response.status_code}")
     #print(f"[JWKS DEBUG] Raw content: {response.text[:300]}")  # Limit for readability    
