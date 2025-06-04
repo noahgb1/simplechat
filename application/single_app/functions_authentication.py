@@ -10,16 +10,20 @@ import requests
 
 
 
-# Set these to match your Azure AD config
-TENANT_ID = "XXXXXXXXXXXXXXXX"
-CLIENT_ID = "XXXXXXXXXXXXXXX"
-JWKS_URL = f"https://login.microsoftonline.com/{TENANT_ID}/discovery/v2.0/keys"
-ISSUER = f"https://sts.windows.net/{TENANT_ID}/"
+def validate_token(token, audience):
 
+    if AZURE_ENVIRONMENT == "usgovernment":
+        issuer = f"https://login.microsoftonline.us/{EXTERNAL_APP_TENANT_ID}/v2.0"
+    else:
+        issuer = f"https://login.microsoftonline.com/{EXTERNAL_APP_TENANT_ID}/v2.0"
 
-def validate_token(token, issuer, audience):
-    jwks_url = f"{issuer}/discovery/v2.0/keys"
-    keys = requests.get(jwks_url).json()["keys"]
+    jwks_url = f"https://login.microsoftonline.com/{EXTERNAL_APP_TENANT_ID}/discovery/v2.0/keys"
+    response = requests.get(jwks_url)
+    #print(f"[JWKS DEBUG] Status: {response.status_code}")
+    #print(f"[JWKS DEBUG] Raw content: {response.text[:300]}")  # Limit for readability    
+
+    #keys = requests.get(jwks_url).json()["keys"]
+    keys = response.json()["keys"]
 
     unverified_header = jwt.get_unverified_header(token)
 
@@ -52,7 +56,7 @@ def try_create_session_from_bearer_token():
         return True
 
     auth_header = request.headers.get("Authorization", "")
-    print(f"[AUTH DEBUG] Authorization Header: {auth_header}", flush=True)
+    #print(f"[AUTH DEBUG] Authorization Header: {auth_header}", flush=True)
 
     if not auth_header.startswith("Bearer "):
         return False
@@ -60,8 +64,10 @@ def try_create_session_from_bearer_token():
     token = auth_header.split(" ", 1)[1]
 
     try:
-        claims = validate_token(token, ISSUER, f"api://{CLIENT_ID}")
-        print("[AUTH DEBUG] Token claims:", claims)
+        
+        claims = validate_token(token, EXTERNAL_APP_CLIENT_ID)
+        
+        #print("[AUTH DEBUG] Token claims:", claims)
 
         session["user"] = {
             "oid": claims.get("oid"),

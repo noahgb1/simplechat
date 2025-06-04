@@ -121,6 +121,10 @@ if AZURE_ENVIRONMENT == "custom":
 else:
     AUTHORITY = f"https://login.microsoftonline.us/{TENANT_ID}"
 
+# Azure AD for external apps that will call the API
+EXTERNAL_APP_CLIENT_ID = os.getenv("EXTERNAL_APP_CLIENT_ID")
+EXTERNAL_APP_TENANT_ID = os.getenv("EXTERNAL_APP_TENANT_ID")
+
 
 WORD_CHUNK_SIZE = 400
 
