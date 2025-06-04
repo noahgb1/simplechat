@@ -3,6 +3,81 @@
 from config import *
 from functions_settings import *
 
+
+from flask import request, session
+from jose import jwt, JWTError
+import requests
+
+
+
+# Set these to match your Azure AD config
+TENANT_ID = "XXXXXXXXXXXXXXXX"
+CLIENT_ID = "XXXXXXXXXXXXXXX"
+JWKS_URL = f"https://login.microsoftonline.com/{TENANT_ID}/discovery/v2.0/keys"
+ISSUER = f"https://sts.windows.net/{TENANT_ID}/"
+
+
+def validate_token(token, issuer, audience):
+    jwks_url = f"{issuer}/discovery/v2.0/keys"
+    keys = requests.get(jwks_url).json()["keys"]
+
+    unverified_header = jwt.get_unverified_header(token)
+
+    rsa_key = next(
+        (key for key in keys if key["kid"] == unverified_header["kid"]),
+        None
+    )
+    if not rsa_key:
+        raise ValueError("Public key not found in JWKs")
+
+    public_key = {
+        "kty": rsa_key["kty"],
+        "kid": rsa_key["kid"],
+        "use": rsa_key["use"],
+        "n": rsa_key["n"],
+        "e": rsa_key["e"]
+    }
+
+    return jwt.decode(
+        token,
+        public_key,
+        algorithms=["RS256"],
+        audience=audience,
+        issuer=issuer
+    )
+
+
+def try_create_session_from_bearer_token():
+    if "user" in session:
+        return True
+
+    auth_header = request.headers.get("Authorization", "")
+    print(f"[AUTH DEBUG] Authorization Header: {auth_header}", flush=True)
+
+    if not auth_header.startswith("Bearer "):
+        return False
+
+    token = auth_header.split(" ", 1)[1]
+
+    try:
+        claims = validate_token(token, ISSUER, f"api://{CLIENT_ID}")
+        print("[AUTH DEBUG] Token claims:", claims)
+
+        session["user"] = {
+            "oid": claims.get("oid"),
+            "email": claims.get("preferred_username") or claims.get("upn"),
+            "name": claims.get("name"),
+            "roles": ["User"]  # Set default role
+        }
+        print(f"[AUTH DEBUG] Session created for {session['user']['email']}")
+        return True
+
+    except Exception as e:
+        print("[AUTH ERROR] Token validation failed:", str(e))
+        return False
+
+
+
 def _load_cache():
     """Loads the MSAL token cache from the Flask session."""
     cache = SerializableTokenCache()
@@ -167,20 +242,23 @@ def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if "user" not in session:
-            is_api_request = (
-                request.accept_mimetypes.accept_json and
-                not request.accept_mimetypes.accept_html
-            ) or request.path.startswith('/api/')
-
-            if is_api_request:
-                print(f"API request to {request.path} blocked (401 Unauthorized). No valid session.")
-                return jsonify({"error": "Unauthorized", "message": "Authentication required"}), 401
+            if try_create_session_from_bearer_token():
+                print(f"Session created from bearer token for {session['user'].get('email')}")
             else:
-                print(f"Browser request to {request.path} redirected ta login. No valid session.")
-                return redirect(url_for('login'))
+                is_api_request = (
+                    request.accept_mimetypes.accept_json and
+                    not request.accept_mimetypes.accept_html
+                ) or request.path.startswith('/api/')
+
+                if is_api_request:
+                    print(f"API request to {request.path} blocked (401 Unauthorized). No valid token or session.")
+                    return jsonify({"error": "Unauthorized", "message": "Authentication required"}), 401
+                else:
+                    return redirect(url_for('login'))
 
         return f(*args, **kwargs)
     return decorated_function
+
 
 def user_required(f):
     @wraps(f)
