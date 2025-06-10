@@ -140,6 +140,19 @@ def get_video_indexer_account_token(settings, video_id=None):
     print(f"[VIDEO] Account token acquired (len={len(ai)})", flush=True)
     return ai
 
+def accesstoken_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if (request.headers.get('Authorization') is None or
+            not request.headers.get('Authorization').startswith('Bearer ')):
+                print(f"API request to {request.path} blocked (401 Unauthorized). No access token.")
+                return jsonify({"error": "Unauthorized", "message": "Access token required"}), 401
+        else:
+            return
+
+        return f(*args, **kwargs)
+    return decorated_function
+
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):

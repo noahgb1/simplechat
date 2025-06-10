@@ -69,7 +69,7 @@ def get_access_token():
         logger.error(f"An unexpected error occurred during token acquisition: {e}")
         return None
 
-def upload_document(file_path, user_id, active_group_id, access_token=None):
+def upload_document(file_path, user_id, active_group_id, classification, access_token=None):
     """
     Uploads a single document to the custom API.
 
@@ -86,7 +86,8 @@ def upload_document(file_path, user_id, active_group_id, access_token=None):
     }
     data = {
         "user_id": user_id.strip(),
-        "active_group_id": active_group_id.strip()
+        "active_group_id": active_group_id.strip(),
+        "classification": classification.strip()
     }
 
     try:
@@ -151,8 +152,9 @@ def read_csv_ignore_header(file_path):
                 directory = row[0]
                 user_id = row[1]
                 active_group_id = row[2]
+                classification = row[3]
                 full_file_path = os.path.join(UPLOAD_DIRECTORY, directory)
-                read_files_in_directory(full_file_path, user_id, active_group_id, g_ACCESS_TOKEN)
+                read_files_in_directory(full_file_path, user_id, active_group_id, classification, g_ACCESS_TOKEN)
                 # You can process each 'row' (which is a list of strings) here
                 line_number += 1
 
@@ -161,7 +163,7 @@ def read_csv_ignore_header(file_path):
     except Exception as e:
         print(f"An error occurred while reading the CSV file: {e}")
 
-def read_files_in_directory(directory, user_id, active_group_id, access_token=g_ACCESS_TOKEN):
+def read_files_in_directory(directory, user_id, active_group_id, classification, access_token=g_ACCESS_TOKEN):
     """
     Reads all files in a specified directory and returns their names.
 
@@ -184,7 +186,7 @@ def read_files_in_directory(directory, user_id, active_group_id, access_token=g_
             files.append(filename)
             logger.debug("Uploading file")
             logger.debug(f"Uploading file: {filename}")
-            upload_document(file_path, user_id, active_group_id, g_ACCESS_TOKEN)
+            upload_document(file_path, user_id, active_group_id, classification, g_ACCESS_TOKEN)
         else:
             logger.info(f"Skipping {filename}: Not a file.")
     #return files

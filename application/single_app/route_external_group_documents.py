@@ -14,6 +14,7 @@ def register_route_external_group_documents(app):
     - DELETE /external/group_documents/<doc_id>
     """
     @app.route('/external/group_documents/upload', methods=['POST'])
+    @accesstoken_required
     @enabled_required("enable_group_workspaces")
     def external_upload_group_document():
         """
@@ -21,16 +22,9 @@ def register_route_external_group_documents(app):
         Mirrors logic from api_user_upload_document but scoped to group context.
         """
 
-        #data = json.loads(request.get_data())
-        # if request.data.is_json:
-        #     data = request.json
-        #user_id = data.get('user_id')
-        #active_group_id = data.get('active_group_id')
-        # else:
-        #     return jsonify({"error": "Request must be JSON"}), 400
-
         user_id = request.form.get('user_id')
         active_group_id = request.form.get('active_group_id')
+        classification = request.form.get('classification')
 
         if 'file' not in request.files:
             return jsonify({'error': 'No file part in the request'}), 400
