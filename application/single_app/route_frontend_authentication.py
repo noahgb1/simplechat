@@ -17,6 +17,7 @@ def register_route_frontend_authentication(app):
             redirect_uri=url_for('authorized', _external=True, _scheme='https') # Ensure scheme is https if deployed
         )
         print("Redirecting to Azure AD for authentication.")
+        #auth_url= auth_url.replace('https://', 'http://')  # Ensure HTTPS for security
         return redirect(auth_url)
 
     @app.route('/getAToken') # This is your redirect URI path
