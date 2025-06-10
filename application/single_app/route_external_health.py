@@ -7,6 +7,12 @@ from functions_prompts import *
 
 def register_route_external_health(app):
     @app.route('/external/healthcheck', methods=['GET'])
-    @login_required
     def health_check():
-        return "Health check OK", 200
+        now = datetime.now()
+        time_string = now.strftime("%Y-%m-%d %H:%M:%S")
+        return time_string, 200
+
+    @app.route('/external/applicationsettings', methods=['GET'])
+    def get_application_settings():
+        settings = get_settings()
+        return settings

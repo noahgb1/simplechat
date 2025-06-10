@@ -33,6 +33,9 @@ from route_backend_prompts import *
 from route_backend_group_prompts import *
 
 from route_external_health import *
+from route_external_group_documents import *
+from route_external_documents import *
+
 
 # =================== Helper Functions ===================
 @app.before_first_request
@@ -172,10 +175,18 @@ register_route_backend_prompts(app)
 # ------------------- API Group Prompts Routes ----------
 register_route_backend_group_prompts(app)
 
-# ------------------- API Group Prompts Routes ----------
+# ------------------- Extenral Health Routes ----------
 register_route_external_health(app)
+
+# ------------------- Extenral Group Documents Routes ----------
+register_route_external_group_documents(app)
+
+# ------------------- Extenral Documents Routes ----------
+register_route_external_documents(app)
 
 if __name__ == '__main__':
     settings = get_settings()
     initialize_clients(settings)
-    app.run(debug=True)
+    app.run(debug=False)
+
+    

@@ -1,4 +1,5 @@
 import os
+import sys
 import csv
 import requests
 from msal import ConfidentialClientApplication
@@ -17,7 +18,8 @@ CLIENT_ID = os.getenv("AZURE_CLIENT_ID")  # Application (client) ID for your cli
 CLIENT_SECRET = os.getenv("AZURE_CLIENT_SECRET")  # Client secret for your client app (use certificates in production)
 API_SCOPE = os.getenv("API_SCOPE") # Or a specific scope defined for your API, e.g., "api://<your-api-client-id>/.default" for application permissions
 API_BASE_URL = os.getenv("API_BASE_URL") # Base URL for your API
-API_ENDPOINT_URL = f"{API_BASE_URL}/api/group_bulk_documents/upload", API_BASE_URL # Your custom API endpoint for document upload
+#GROUP_DOCUMENTS_UPLOAD_URL = f"{API_BASE_URL}/external/group_bulk_documents/upload", API_BASE_URL # Your custom API endpoint for document upload
+GROUP_DOCUMENTS_UPLOAD_URL = f"{API_BASE_URL}/external/group_documents/upload"
 UPLOAD_DIRECTORY = os.getenv("UPLOAD_DIRECTORY")  # Local directory containing files to upload
 g_ACCESS_TOKEN = None  # Placeholder for the access token function
 
@@ -28,6 +30,9 @@ logging.basicConfig(filename=logname,
     format='%(asctime)s,%(msecs)03d %(name)s %(levelname)s %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S',
     level=logging.DEBUG)
+stdout_handler = logging.StreamHandler(sys.stdout)
+stdout_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+logging.getLogger().addHandler(stdout_handler)
 logger = logging.getLogger(__name__)
 
 #############################################
@@ -64,7 +69,7 @@ def get_access_token():
         logger.error(f"An unexpected error occurred during token acquisition: {e}")
         return None
 
-def upload_document(file_path, user_id, active_group_id, access_token):
+def upload_document(file_path, user_id, active_group_id, access_token=None):
     """
     Uploads a single document to the custom API.
 
@@ -77,20 +82,20 @@ def upload_document(file_path, user_id, active_group_id, access_token):
     """
     file_name = os.path.basename(file_path)
     headers = {
-        "Authorization": f"Bearer {access_token}"
+        #"Authorization": f"Bearer {access_token}"
     }
     data = {
-        'userId': user_id,
-        'activeGroupOid': active_group_id
+        "user_id": user_id.strip(),
+        "active_group_id": active_group_id.strip()
     }
 
     try:
         with open(file_path, 'rb') as f:
             files = {'file': (file_name, f)}
-            logger.info(f"`nAttempting to upload: {file_name}")
+            logger.info(f"`nAttempting to upload: {file_name} to url: {GROUP_DOCUMENTS_UPLOAD_URL}")
             logger.info(f"User_ID: {user_id}, Active_Group_OID: {active_group_id}")
-
-            response = requests.post(API_ENDPOINT_URL, headers=headers, files=files, data=data, timeout=60) # Added timeout
+            input("Press Enter to process this file...")
+            response = requests.post(GROUP_DOCUMENTS_UPLOAD_URL, headers=headers, files=files, data=data, timeout=60) # Added timeout
             response.raise_for_status()  # Raise an HTTPError for bad responses (4xx or 5xx)
 
             logger.info(f"Successfully uploaded {file_name}. Status Code: {response.status_code}")
@@ -174,7 +179,7 @@ def read_files_in_directory(directory, user_id, active_group_id, access_token=g_
     files = []
     for filename in os.listdir(directory):
         file_path = os.path.join(directory, filename)
-        print(f"Processing file: {file_path}")
+        print(f"Processing file(s): {file_path}")
         if (os.path.isfile(file_path)):
             files.append(filename)
             logger.debug("Uploading file")
@@ -194,10 +199,10 @@ def main():
         logger.error(f"Error: Directory '{UPLOAD_DIRECTORY}' not found.")
         return
 
-    g_ACCESS_TOKEN = get_access_token()
-    if not g_ACCESS_TOKEN:
-        logger.critical("Failed to obtain access token. Aborting document upload.")
-        return
+    # g_ACCESS_TOKEN = get_access_token()
+    # if not g_ACCESS_TOKEN:
+    #     logger.critical("Failed to obtain access token. Aborting document upload.")
+    #     return
 
     logger.info("Reading map file...")
     read_csv_ignore_header('map.csv')
