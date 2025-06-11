@@ -24,6 +24,7 @@ import ffmpeg_binaries as ffmpeg_bin
 ffmpeg_bin.init()
 import ffmpeg as ffmpeg_py
 import glob
+import jwt
 
 from flask import (
     Flask, 
@@ -109,14 +110,17 @@ AUTHORITY = f"https://login.microsoftonline.us/{TENANT_ID}"
 SCOPE = ["User.Read", "User.ReadBasic.All", "People.Read.All", "Group.Read.All"] # Adjust scope according to your needs
 MICROSOFT_PROVIDER_AUTHENTICATION_SECRET = os.getenv("MICROSOFT_PROVIDER_AUTHENTICATION_SECRET")    
 AZURE_ENVIRONMENT = os.getenv("AZURE_ENVIRONMENT", "public") # public, usgovernment
+OIDC_METADATA_URL = f"https://login.microsoftonline.com/{TENANT_ID}/v2.0/.well-known/openid-configuration"
 
 WORD_CHUNK_SIZE = 400
 
 if AZURE_ENVIRONMENT == "usgovernment":
+    OIDC_METADATA_URL = f"https://login.microsoftonline.us/{TENANT_ID}/v2.0/.well-known/openid-configuration"
     resource_manager = "https://management.usgovcloudapi.net"
     authority = AzureAuthorityHosts.AZURE_GOVERNMENT
     credential_scopes=[resource_manager + "/.default"]
 else:
+    OIDC_METADATA_URL = f"https://login.microsoftonline.com/{TENANT_ID}/v2.0/.well-known/openid-configuration"
     resource_manager = "https://management.azure.com"
     authority = AzureAuthorityHosts.AZURE_PUBLIC_CLOUD
     credential_scopes=[resource_manager + "/.default"]

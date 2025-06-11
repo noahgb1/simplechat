@@ -6,6 +6,7 @@ from functions_settings import *
 from functions_prompts import *
 
 def register_route_external_health(app):
+    # DO NOT LOCK THIS DOWN. IT SHOULD BE PUBLICLY ACCESSIBLE
     @app.route('/external/healthcheck', methods=['GET'])
     def health_check():
         now = datetime.now()
@@ -13,6 +14,13 @@ def register_route_external_health(app):
         return time_string, 200
 
     @app.route('/external/applicationsettings', methods=['GET'])
+    @accesstoken_required
     def get_application_settings():
         settings = get_settings()
         return settings
+    
+    @app.route('/external/testaccesstoken', methods=['POST'])
+    @accesstoken_required
+    def test_access_token():
+        message = "Access token is valid."
+        return message, 200

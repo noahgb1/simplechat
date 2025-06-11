@@ -18,8 +18,8 @@ CLIENT_ID = os.getenv("AZURE_CLIENT_ID")  # Application (client) ID for your cli
 CLIENT_SECRET = os.getenv("AZURE_CLIENT_SECRET")  # Client secret for your client app (use certificates in production)
 API_SCOPE = os.getenv("API_SCOPE") # Or a specific scope defined for your API, e.g., "api://<your-api-client-id>/.default" for application permissions
 API_BASE_URL = os.getenv("API_BASE_URL") # Base URL for your API
-#GROUP_DOCUMENTS_UPLOAD_URL = f"{API_BASE_URL}/external/group_bulk_documents/upload", API_BASE_URL # Your custom API endpoint for document upload
 GROUP_DOCUMENTS_UPLOAD_URL = f"{API_BASE_URL}/external/group_documents/upload"
+BEARER_TOKEN_TEST_URL = f"{API_BASE_URL}/external/testaccesstoken"  # URL to test the access token
 UPLOAD_DIRECTORY = os.getenv("UPLOAD_DIRECTORY")  # Local directory containing files to upload
 g_ACCESS_TOKEN = None  # Placeholder for the access token function
 
@@ -82,7 +82,7 @@ def upload_document(file_path, user_id, active_group_id, classification, access_
     """
     file_name = os.path.basename(file_path)
     headers = {
-        #"Authorization": f"Bearer {access_token}"
+        "Authorization": f"Bearer {access_token}"
     }
     data = {
         "user_id": user_id.strip(),
@@ -121,6 +121,31 @@ def upload_document(file_path, user_id, active_group_id, classification, access_
         return False
     except Exception as e:
         logger.error(f"An unexpected error occurred while processing {file_name}: {e}")
+        return False
+
+def test_access_token(access_token):
+    """
+    Tests the access token by making a request to the API.
+
+    Args:
+        access_token (str): The Microsoft Entra ID access token.
+
+    Returns:
+        bool: True if the token is valid, False otherwise.
+    """
+    headers = {
+        "Authorization": f"Bearer {access_token}"
+    }
+    try:
+        response = requests.post(BEARER_TOKEN_TEST_URL, headers=headers)
+        response.raise_for_status()  # Raise an HTTPError for bad responses (4xx or 5xx)
+        logger.info("Access token is valid.")
+        return True
+    except requests.exceptions.HTTPError as e:
+        logger.error(f"HTTP error occurred while testing access token: {e}")
+        return False
+    except requests.exceptions.RequestException as e:
+        logger.error(f"An error occurred while testing access token: {e}")
         return False
 
 def read_csv_ignore_header(file_path):
@@ -201,14 +226,16 @@ def main():
         logger.error(f"Error: Directory '{UPLOAD_DIRECTORY}' not found.")
         return
 
-    # g_ACCESS_TOKEN = get_access_token()
-    # if not g_ACCESS_TOKEN:
-    #     logger.critical("Failed to obtain access token. Aborting document upload.")
-    #     return
+    g_ACCESS_TOKEN = get_access_token()
+    if not g_ACCESS_TOKEN:
+        logger.critical("Failed to obtain access token. Aborting document upload.")
+        return
 
-    logger.info("Reading map file...")
-    read_csv_ignore_header('map.csv')
-    logger.info("Map file processed...")
+    test_access_token(access_token=g_ACCESS_TOKEN)
+
+    #logger.info("Reading map file...")
+    #read_csv_ignore_header('map.csv')
+    #logger.info("Map file processed...")
 
     logger.info("Bulk upload of documents is complete...")
 
