@@ -231,11 +231,13 @@ def main():
         logger.critical("Failed to obtain access token. Aborting document upload.")
         return
 
+    logger.info("Testing access token for validity...")
     test_access_token(access_token=g_ACCESS_TOKEN)
+    logger.info("Access token test complete...")
 
-    #logger.info("Reading map file...")
-    #read_csv_ignore_header('map.csv')
-    #logger.info("Map file processed...")
+    logger.info("Reading map file...")
+    read_csv_ignore_header('map.csv')
+    logger.info("Map file processed...")
 
     logger.info("Bulk upload of documents is complete...")
 
