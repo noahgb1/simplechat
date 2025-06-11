@@ -121,30 +121,13 @@ def register_route_external_group_documents(app):
 
         
     @app.route('/external/group_documents', methods=['GET'])
+    @accesstoken_required
     @enabled_required("enable_group_workspaces")
     def external_get_group_documents():
         """
         Return a paginated, filtered list of documents for the user's *active* group.
         Mirrors logic of api_get_user_documents.
         """
-        # user_id = get_current_user_id()
-        # if not user_id:
-        #     return jsonify({'error': 'User not authenticated'}), 401
-
-        # user_settings = get_user_settings(user_id)
-        # active_group_id = user_settings["settings"].get("activeGroupOid")
-
-        # if not active_group_id:
-        #     return jsonify({'error': 'No active group selected'}), 400
-
-        # group_doc = find_group_by_id(group_id=active_group_id)
-        # if not group_doc:
-        #     return jsonify({'error': 'Active group not found'}), 404
-
-        # role = get_user_role_in_group(group_doc, user_id)
-        # if not role:
-        #     return jsonify({'error': 'You are not a member of the active group'}), 403
-
         user_id = request.args.get('user_id')
         active_group_id = request.args.get('active_group_id')
 
@@ -263,30 +246,13 @@ def register_route_external_group_documents(app):
 
 
     @app.route('/external/group_documents/<document_id>', methods=['GET'])
+    @accesstoken_required
     @enabled_required("enable_group_workspaces")
     def external_get_group_document(document_id):
         """
         Return metadata for a specific group document, validating group membership.
         Mirrors logic of api_get_user_document.
         """
-        # user_id = get_current_user_id()
-        # if not user_id:
-        #     return jsonify({'error': 'User not authenticated'}), 401
-
-        # user_settings = get_user_settings(user_id)
-        # active_group_id = user_settings["settings"].get("activeGroupOid")
-
-        # if not active_group_id:
-        #     return jsonify({'error': 'No active group selected'}), 400
-
-        # group_doc = find_group_by_id(active_group_id)
-        # if not group_doc:
-        #     return jsonify({'error': 'Active group not found'}), 404
-
-        # role = get_user_role_in_group(group_doc, user_id)
-        # if not role:
-        #     return jsonify({'error': 'You are not a member of the active group'}), 403
-
         user_id = request.args.get('user_id')
         active_group_id = request.args.get('active_group_id')
 
@@ -299,17 +265,14 @@ def register_route_external_group_documents(app):
         return get_document(user_id=user_id, document_id=document_id, group_id=active_group_id)
 
     @app.route('/external/group_documents/<document_id>', methods=['PATCH'])
+    @accesstoken_required
     @enabled_required("enable_group_workspaces")
     def external_patch_group_document(document_id):
         """
         Update metadata fields for a group document. Mirrors logic from api_patch_user_document.
         """
-        user_id = get_current_user_id()
-        if not user_id:
-            return jsonify({'error': 'User not authenticated'}), 401
-
-        user_settings = get_user_settings(user_id)
-        active_group_id = user_settings["settings"].get("activeGroupOid")
+        user_id = request.args.get('user_id')
+        active_group_id = request.args.get('active_group_id')
 
         if not active_group_id:
             return jsonify({'error': 'No active group selected'}), 400
@@ -317,10 +280,6 @@ def register_route_external_group_documents(app):
         group_doc = find_group_by_id(active_group_id)
         if not group_doc:
             return jsonify({'error': 'Active group not found'}), 404
-
-        role = get_user_role_in_group(group_doc, user_id)
-        if role not in ["Owner", "Admin", "DocumentManager"]:
-            return jsonify({'error': 'You do not have permission to update documents in this group'}), 403
 
         data = request.get_json()
 
@@ -397,24 +356,6 @@ def register_route_external_group_documents(app):
         Delete a group document and its associated chunks.
         Mirrors api_delete_user_document with group context and permissions.
         """
-        # user_id = get_current_user_id()
-        # if not user_id:
-        #     return jsonify({'error': 'User not authenticated'}), 401
-
-        # user_settings = get_user_settings(user_id)
-        # active_group_id = user_settings["settings"].get("activeGroupOid")
-
-        # if not active_group_id:
-        #     return jsonify({'error': 'No active group selected'}), 400
-
-        # group_doc = find_group_by_id(active_group_id)
-        # if not group_doc:
-        #     return jsonify({'error': 'Active group not found'}), 404
-
-        # role = get_user_role_in_group(group_doc, user_id)
-        # if role not in ["Owner", "Admin", "DocumentManager"]:
-        #     return jsonify({'error': 'You do not have permission to delete documents in this group'}), 403
-
         user_id = request.args.get('user_id')
         active_group_id = request.args.get('active_group_id')
 
@@ -427,34 +368,13 @@ def register_route_external_group_documents(app):
 
 
     @app.route('/external/group_documents/<document_id>/extract_metadata', methods=['POST'])
+    @accesstoken_required
     @enabled_required("enable_group_workspaces")
     def external_extract_group_metadata(document_id):
         """
         POST /external/group_documents/<document_id>/extract_metadata
         Queues a background job to extract metadata for a group document.
         """
-        # user_id = get_current_user_id()
-        # if not user_id:
-        #     return jsonify({'error': 'User not authenticated'}), 401
-
-        # settings = get_settings()
-        # if not settings.get('enable_extract_meta_data'):
-        #     return jsonify({'error': 'Metadata extraction not enabled'}), 403
-
-        # user_settings = get_user_settings(user_id)
-        # active_group_id = user_settings["settings"].get("activeGroupOid")
-
-        # if not active_group_id:
-        #     return jsonify({'error': 'No active group selected'}), 400
-
-        # group_doc = find_group_by_id(active_group_id)
-        # if not group_doc:
-        #     return jsonify({'error': 'Active group not found'}), 404
-
-        # role = get_user_role_in_group(group_doc, user_id)
-        # if role not in ["Owner", "Admin", "DocumentManager"]:
-        #     return jsonify({'error': 'You do not have permission to extract metadata for this group document'}), 403
-
         user_id = request.form.get('user_id')
         active_group_id = request.form.get('active_group_id')
 
@@ -480,26 +400,11 @@ def register_route_external_group_documents(app):
         }), 200
         
     @app.route('/external/group_documents/upgrade_legacy', methods=['POST'])
+    @accesstoken_required
     @enabled_required("enable_group_workspaces")
     def external_upgrade_legacy_group_documents():
-        # user_id = get_current_user_id()
-        # settings = get_user_settings(user_id)
-        # active_group_id = settings["settings"].get("activeGroupOid")
-        # if not active_group_id:
-        #     return jsonify({'error':'No active group selected'}), 400
-
-        # group_doc = find_group_by_id(active_group_id)
-        # if not group_doc:
-        #     return jsonify({'error':'Active group not found'}), 404
-
-        # role = get_user_role_in_group(group_doc, user_id)
-        # if role not in ["Owner","Admin","DocumentManager"]:
-        #     return jsonify({'error':'Insufficient permissions'}), 403
-
-        if request.is_json:
-            data = request.json
-            user_id = data.get('user_id')
-            active_group_id = data.get('active_group_id')
+        user_id = request.form.get('user_id')
+        active_group_id = request.form.get('active_group_id')
 
         # returns how many docs were updated
         try:
