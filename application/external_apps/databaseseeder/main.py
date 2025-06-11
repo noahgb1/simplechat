@@ -1,10 +1,10 @@
 import os
-import msal
+import sys
+import csv
 import requests
 from msal import ConfidentialClientApplication
 import logging
 from dotenv import load_dotenv
-import webbrowser
 
 #############################################
 # --- Configuration ---
@@ -18,72 +18,75 @@ CLIENT_ID = os.getenv("AZURE_CLIENT_ID")  # Application (client) ID for your cli
 CLIENT_SECRET = os.getenv("AZURE_CLIENT_SECRET")  # Client secret for your client app (use certificates in production)
 API_SCOPE = os.getenv("API_SCOPE") # Or a specific scope defined for your API, e.g., "api://<your-api-client-id>/.default" for application permissions
 API_BASE_URL = os.getenv("API_BASE_URL") # Base URL for your API
-API_ENDPOINT_URL = f"{API_BASE_URL}/api/groups/discover" # Your custom API endpoint for document upload
+GROUPS_DISCOVER_URL = f"{API_BASE_URL}/external/groups/discover" # Your custom API endpoint for document upload
 USER_ID = os.getenv("USER_ID")  # User ID for whom the groups are being fetched
 g_ACCESS_TOKEN = None  # Placeholder for the access token function
-authority = f"{AUTHORITY_URL}/{TENANT_ID}"
-#authority = "https://julie1-sbx-app-ui7wiq4j5sqf4.azurewebsites.us/getAToken"
-#authority = "https://julie1-sbx-app-ui7wiq4j5sqf4.azurewebsites.us/getAToken/v2.0/.well-known/openid-configuration"
-TOKEN_CACHE_FILE = "msal_token_cache.bin"
+
+AUTHORITY_FULL_URL = f"{AUTHORITY_URL}/{TENANT_ID}"
 
 # Configure logging for better debugging
-logname = "./logfile.log"
-logging.basicConfig(level = logging.INFO) # DEBUG, INFO, WARNING, ERROR, and CRITICAL
+stdout_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+appLogname = "./logfile.log"
+logging.basicConfig(filename=appLogname,
+    filemode='a',
+    format='%(asctime)s,%(msecs)03d %(name)s %(levelname)s %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S',
+    level=logging.DEBUG)
+stdout_handler = logging.StreamHandler(sys.stdout)
+stdout_handler.setFormatter(stdout_formatter)
+logging.getLogger().addHandler(stdout_handler)
 logger = logging.getLogger(__name__)
-
 
 #############################################
 # --- Function Library ---
 #############################################
-def get_token_interactive():
-    result = None
-
+def get_access_token():
+    """
+    Acquires an access token from Microsoft Entra ID using the client credentials flow.
+    """
+    authority = f"{AUTHORITY_URL}/{TENANT_ID}"
     app = ConfidentialClientApplication(
-        CLIENT_ID,
-        authority=authority,
+        client_id=CLIENT_ID,
         client_credential=CLIENT_SECRET,
-        instance_discovery=False,
-        token_cache=msal.TokenCache() # Optional: For persistent token caching
+        authority=authority
     )
 
-    #accounts = app.get_accounts()
-    accounts = app.get_accounts(username="greg@gregungergov.onmicrosoft.us")
-    print(accounts)
+    try:
+        # Acquire a token silently from cache if available
+        result = app.acquire_token_silent(scopes=[API_SCOPE], account=None)
+        if not result:
+            # If no token in cache, acquire a new one using client credentials flow
+            logger.info("No token in cache, acquiring new token using client credentials flow.")
+            result = app.acquire_token_for_client(scopes=[API_SCOPE])
 
-    SCOPE = ["User.Read", "User.ReadBasic.All", "People.Read.All", "Group.Read.All"] # Adjust scope according to your needs
+        if "access_token" in result:
+            logger.info("Successfully acquired access token.")
+            return result["access_token"]
+        else:
+            logger.error(f"Error acquiring token: {result.get('error')}")
+            logger.error(f"Description: {result.get('error_description')}")
+            logger.error(f"Correlation ID: {result.get('correlation_id')}")
+            return None
+    except Exception as e:
+        logger.error(f"An unexpected error occurred during token acquisition: {e}")
+        return None
 
-    authorization_url = app.get_authorization_request_url(
-        scopes=SCOPE,
-        #redirect_uri="https://julie1-sbx-app-ui7wiq4j5sqf4.azurewebsites.us/getAToken"
-        #redirect_uri="https://julie1-sbx-app-ui7wiq4j5sqf4.azurewebsites.us/.auth/login/aad/callback"
-        redirect_uri="https://localhost"
-    )
-    
-    print(authorization_url)
-
-    #result = app.acquire_token_silent(scopes=SCOPE, account=accounts)
-
-    #if result and "access_token" in result:
-    #    return result['access_token']
-  
-    #auth_code = input("Enter the authorization code from the browser redirect URL: ")
-    #auth_code = "0.CwMAPrPFawW8PEmwdo-M4TMVFeL4rKkdRMpKhPaoOz6CB3IDAPc.AgABBAIAAgBR8dQFmz9bTrhReQfPAnzpBQDs_wUA8P_sx4AuAWjpWtps1y_nKzAJYajArFS24PNwTm64boIpnrpC2b_tgZ6ULbxdM6xAuIlDFYxfkRBBNzlEp7WVTxiO7pTLNjMFqPt1MW8XgnecJKu5-yOCgNpryCuq7vXotrVdZzLo-82FlsFoBDqoM0pCzocjV60yj5HhCIzXqb-ygOorrEUnHmRhbjM-DpuufnF1iObcww4fHz8_tYUUKTvJlF7BOCyxLFMPhHul92bG7qyoWItRI8kaELNjjmGgDKVLRxNUZ5fxphaZVvVXBTsz3iFWDxY4qy86jMyPkqodylVz29k6nXIShRBZzGjzQNSFPyXsO3XlDVOwHDFGh95vIFoJaHpDoA651BBrIzeKuaoFQVO89aS_EJDt3JfH3heX7zyyYUZlqyBQSjrhYB4ANG1g0qtyto6z6kQ1L_mHKJ8jT3JgPYFUsPCaEsQaxJ35wffqpwtFm3FKsjWckZ095wQNg7376XE7lNnDpNM4eLbrspKwPPTTGzXMNYvqRUPGHMVe8f_WITJwsyubogGK2d4BiAhjOeRkvr68vK1fsdIkQ8Avalz2LLkQS6Z1QXcZzWjF9ZnoXwW6VrO7COGRPl244UysdNXhxcGl_6F9EvHdoNYc6kWVJ9KN8UXFGRYtc2Az314Ha1Ymx7ZIp8hyLxJrxV7DzHkzampO0zroUbuQZMamxfzZo5dpKdpZ5ITNyBPEuwuFELHzoADxhLyYq8n4HbAxj3X-8d-3vxiLRHbaEjPSF2ql5Rza_DiS4frZglXeuBncHdGGSw2y1bvWoY0xLpIsgL9Gmr8K1okQFJtQR81bGqEPHRSECqZXIsEnhN9VPfR6QxWkhh3UtQ"
-
-def groups_get(user_id, access_token):
+def groups_get(user_id, access_token=g_ACCESS_TOKEN):
+    global logger
     logger.debug(f"groups_get: {user_id}")
     headers = {
         "Authorization": f"Bearer {access_token}"
     }
     data = {
-        'userId': user_id
+        'user_Id': user_id
     }
     params = {
         "showAll": str(True).lower()
     }
 
     try:
-        logger.debug("`n`nAPI Endpoint: " + API_ENDPOINT_URL + "`n`n")
-        response = requests.post(API_ENDPOINT_URL, headers=headers, data=data, params=params, timeout=60)
+        logger.debug("`n`nAPI Endpoint: " + GROUPS_DISCOVER_URL + "`n`n")
+        response = requests.get(GROUPS_DISCOVER_URL, headers=headers, data=data, params=params, timeout=60)
         response.raise_for_status()
 
         logger.debug(f"Response: {response.text}")
@@ -93,42 +96,21 @@ def groups_get(user_id, access_token):
         logger.error(f"Response content: {e}")
         return False
 
-    def greg():
-        myUrl="https://julie1-sbx-app-ui7wiq4j5sqf4.azurewebsites.us/getAToken"
-        access_token = ""
-        headers = {
-            "Authorization": f"Bearer {access_token}"
-        }
-        data = {
-            'userId': USER_ID
-        }
-        params = {
-            "showAll": str(True).lower()
-        }
-        try:
-            logger.debug("`n`nAPI Endpoint: " + API_ENDPOINT_URL + "`n`n")
-            response = requests.post(API_ENDPOINT_URL, headers=headers, data=data, timeout=60)
-            response.raise_for_status()
-
-            logger.debug(f"Response: {response.text}")
-
-        except Exception as e:
-            print(f"HTTP Error: {e}")
-            logger.error(f"Response content: {e}")
-            return False
-
 def main():
     """
     Main function to iterate through files and upload them.
     """
-    logger.warning("Database seeder starting...")
-    g_ACCESS_TOKEN = get_token_interactive()
+    global logger, g_ACCESS_TOKEN
+
+    logger.info("Database seeder starting...")
+    g_ACCESS_TOKEN = get_access_token()
     if not g_ACCESS_TOKEN:
         logger.critical("Failed to obtain access token. Aborting document upload.")
         return
 
-    logger.warning("Getting Groups from CosmosDb...")
-    groups_get(USER_ID, access_token=g_ACCESS_TOKEN)
+    logger.info("Getting Groups from CosmosDb...")
+    groups_get(USER_ID, g_ACCESS_TOKEN)
+    logger.info("Getting Groups completed...")
 
     logger.warning("Database seeder complete...")
 
