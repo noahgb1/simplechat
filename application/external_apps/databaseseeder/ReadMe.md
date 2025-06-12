@@ -21,4 +21,10 @@ API_BASE_URL=<https://web-8000.azurewebsites.us> (Example only)
 USER_ID=457f0fcb-b0b4-4b12-b55c-d4f116a7e111 (OBJECT ID OF USER FROM ENTRA)
 ```
 
-## STEP 2: TBD
+## STEP 2: Modify your artifacts\admin_setting.json
+
+Modify this file with the settings you want. Make sure these settings match what is in CosmosDb for the given version of SimpleChat you are on.
+
+Warning: All settings from artifacts\admin_settings.json will overwrite whatever is in CosmosDb.
+
+## STEP 3: Execute main.py

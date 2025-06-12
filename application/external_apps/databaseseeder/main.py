@@ -1,7 +1,9 @@
+import errno
 import os
 import sys
 import csv
 import requests
+import json
 from msal import ConfidentialClientApplication
 import logging
 from dotenv import load_dotenv
@@ -112,13 +114,14 @@ def application_settings_get(access_token=g_ACCESS_TOKEN):
         response.raise_for_status()
 
         logger.debug(f"Response: {response.text}")
+        return response.json()  # Assuming the response is in JSON format
 
     except Exception as e:
         print(f"HTTP Error: {e}")
         logger.error(f"Response content: {e}")
         return False
 
-def application_settings_set(access_token=g_ACCESS_TOKEN):
+def application_settings_set(settings_json, access_token=g_ACCESS_TOKEN):
     global logger
     logger.debug("application_settings_set")
     headers = {
@@ -127,7 +130,7 @@ def application_settings_set(access_token=g_ACCESS_TOKEN):
 
     try:
         logger.debug(f"API Endpoint: {ADMIN_SETTINGS_SET_URL}")
-        response = requests.post(ADMIN_SETTINGS_SET_URL, headers=headers, timeout=60)
+        response = requests.post(ADMIN_SETTINGS_SET_URL, json=settings_json, headers=headers, timeout=60)
         response.raise_for_status()
 
         logger.debug(f"Response: {response.text}")
@@ -154,11 +157,40 @@ def main():
     logger.info("Getting Groups call completed...")
 
     logger.info("Getting Application Settings...")
-    application_settings_get(g_ACCESS_TOKEN)
+    settings_json = application_settings_get(g_ACCESS_TOKEN)
     logger.info("Application Settings call completed...")
 
+    absolute_file_path_of_script = os.path.abspath(__file__)
+    script_directory = os.path.dirname(absolute_file_path_of_script)
+    print(f"Script directory: {script_directory}")
+
+    file_path = r"artifacts\admin_settings.json"
+    settings_file_path = os.path.join(script_directory, file_path)
+    print(f"settings_file_path: {settings_file_path}")
+    settings_json_from_file = None
+    if os.path.exists(settings_file_path):
+        with open(file_path, 'r') as file:
+            # Use json.load() to parse the file content into a Python object
+            settings_json_from_file = json.load(file)
+            print("JSON file loaded successfully!")
+            print(f"Type of loaded_data: {type(settings_json_from_file)}")
+            print("-" * 30)
+            print(f"Content of loaded_data: {settings_json_from_file}")
+            print("-" * 30)
+    else:
+        logger.error(f"File not found: {settings_file_path}")
+        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), settings_file_path)
+
+    #azure_openai_gpt_key = settings_json_from_file['azure_openai_gpt_key']
+    #print(f"azure_openai_gpt_key: {azure_openai_gpt_key}")
+    # Single value modification example
+    #settings_json["azure_openai_gpt_key"] = f"{azure_openai_gpt_key}" # Example modification
+
+    settings_json.update(settings_json_from_file)
+    print("\nMerged JSON (using update()):", json.dumps(settings_json, indent=2))
+
     logger.info("Setting Application Settings...")
-    application_settings_set(g_ACCESS_TOKEN)
+    application_settings_set(settings_json, g_ACCESS_TOKEN)
     logger.info("Setting Application call completed...")
 
     logger.warning("Database seeder complete...")
