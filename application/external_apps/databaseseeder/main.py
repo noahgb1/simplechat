@@ -18,11 +18,14 @@ CLIENT_ID = os.getenv("AZURE_CLIENT_ID")  # Application (client) ID for your cli
 CLIENT_SECRET = os.getenv("AZURE_CLIENT_SECRET")  # Client secret for your client app (use certificates in production)
 API_SCOPE = os.getenv("API_SCOPE") # Or a specific scope defined for your API, e.g., "api://<your-api-client-id>/.default" for application permissions
 API_BASE_URL = os.getenv("API_BASE_URL") # Base URL for your API
-GROUPS_DISCOVER_URL = f"{API_BASE_URL}/external/groups/discover" # Your custom API endpoint for document upload
 USER_ID = os.getenv("USER_ID")  # User ID for whom the groups are being fetched
 g_ACCESS_TOKEN = None  # Placeholder for the access token function
-
 AUTHORITY_FULL_URL = f"{AUTHORITY_URL}/{TENANT_ID}"
+
+# API Urls
+GROUPS_DISCOVER_URL = f"{API_BASE_URL}/external/groups/discover" # Your custom API endpoint for document upload
+ADMIN_SETTINGS_GET_URL = f"{API_BASE_URL}/external/applicationsettings/get" # Your custom API endpoint for document upload
+ADMIN_SETTINGS_SET_URL = f"{API_BASE_URL}/external/applicationsettings/set" # Your custom API endpoint for document upload
 
 # Configure logging for better debugging
 stdout_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
@@ -96,6 +99,44 @@ def groups_get(user_id, access_token=g_ACCESS_TOKEN):
         logger.error(f"Response content: {e}")
         return False
 
+def application_settings_get(access_token=g_ACCESS_TOKEN):
+    global logger
+    logger.debug("application_settings_get")
+    headers = {
+        "Authorization": f"Bearer {access_token}"
+    }
+
+    try:
+        logger.debug(f"API Endpoint: {ADMIN_SETTINGS_GET_URL}")
+        response = requests.get(ADMIN_SETTINGS_GET_URL, headers=headers, timeout=60)
+        response.raise_for_status()
+
+        logger.debug(f"Response: {response.text}")
+
+    except Exception as e:
+        print(f"HTTP Error: {e}")
+        logger.error(f"Response content: {e}")
+        return False
+
+def application_settings_set(access_token=g_ACCESS_TOKEN):
+    global logger
+    logger.debug("application_settings_set")
+    headers = {
+        "Authorization": f"Bearer {access_token}"
+    }
+
+    try:
+        logger.debug(f"API Endpoint: {ADMIN_SETTINGS_SET_URL}")
+        response = requests.post(ADMIN_SETTINGS_SET_URL, headers=headers, timeout=60)
+        response.raise_for_status()
+
+        logger.debug(f"Response: {response.text}")
+
+    except Exception as e:
+        print(f"HTTP Error: {e}")
+        logger.error(f"Response content: {e}")
+        return False
+
 def main():
     """
     Main function to iterate through files and upload them.
@@ -108,9 +149,17 @@ def main():
         logger.critical("Failed to obtain access token. Aborting document upload.")
         return
 
-    logger.info("Getting Groups from CosmosDb...")
+    logger.info("Getting Groups...")
     groups_get(USER_ID, g_ACCESS_TOKEN)
-    logger.info("Getting Groups completed...")
+    logger.info("Getting Groups call completed...")
+
+    logger.info("Getting Application Settings...")
+    application_settings_get(g_ACCESS_TOKEN)
+    logger.info("Application Settings call completed...")
+
+    logger.info("Setting Application Settings...")
+    application_settings_set(g_ACCESS_TOKEN)
+    logger.info("Setting Application call completed...")
 
     logger.warning("Database seeder complete...")
 

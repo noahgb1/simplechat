@@ -36,6 +36,8 @@ from route_external_health import *
 from route_external_group_documents import *
 from route_external_documents import *
 from route_external_groups import *
+from route_external_admin_settings import *
+
 
 # =================== Helper Functions ===================
 @app.before_first_request
@@ -186,6 +188,9 @@ register_route_external_group_documents(app)
 
 # ------------------- Extenral Documents Routes ----------
 register_route_external_documents(app)
+
+# ------------------- Extenral Admin Settings Routes ----------
+register_route_external_admin_settings(app)
 
 if __name__ == '__main__':
     settings = get_settings()
