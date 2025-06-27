@@ -744,9 +744,8 @@ a.citation-link:hover {
   /* fall back to normal wrapping for most text */
   white-space: normal !important;
 
-  /* break long words or URLs anywhere if needed */
-  word-break: break-all;        /* or try break-word on modern browsers */
-  overflow-wrap: break-word;    /* legacy name for word-wrap */
+  /* if wrap needed, move word to next line */
+  word-break: normal;        
 }
 
 /* Sender label */
@@ -772,6 +771,15 @@ a.citation-link:hover {
   text-decoration: none;
 }
 
+/* File links in dark mode - improved contrast on green background */
+[data-bs-theme="dark"] .file-message .message-bubble .file-link {
+  color: #ffffff; /* White for best contrast on dark green (4.53:1 ratio) */
+}
+
+[data-bs-theme="dark"] .file-message .message-bubble .file-link:hover {
+  color: #f0f8ff; /* Very light blue on hover */
+  text-decoration: none;
+}
 
 /* Reset margins for paragraphs */
 .message-text p {
@@ -829,6 +837,12 @@ pre code {
   display: block;
   border-radius: 4px;
   overflow-x: auto;
+}
+
+/* Dark mode styling for code blocks */
+[data-bs-theme="dark"] pre code {
+  background-color: #343a40;
+  color: #e9ecef;
 }
 
 /* Style blockquotes */
