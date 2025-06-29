@@ -24,7 +24,6 @@ export async function saveUserSetting(settingsToUpdate) {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                // Add CSRF token header if you use CSRF protection
             },
             body: JSON.stringify({ settings: settingsToUpdate }), // Send nested structure
         });

@@ -1,5 +1,4 @@
 # app.py
-
 from config import *
 
 from functions_authentication import *
@@ -7,6 +6,7 @@ from functions_content import *
 from functions_documents import *
 from functions_search import *
 from functions_settings import *
+from functions_appinsights import *
 
 from route_frontend_authentication import *
 from route_frontend_profile import *
@@ -31,9 +31,20 @@ from route_backend_feedback import *
 from route_backend_settings import *
 from route_backend_prompts import *
 from route_backend_group_prompts import *
+from route_backend_plugins import bpap as admin_plugins_bp, bpdp as dynamic_plugins_bp
+from route_backend_agents import bpa as admin_agents_bp
+app.register_blueprint(admin_plugins_bp)
+app.register_blueprint(dynamic_plugins_bp)
+app.register_blueprint(admin_agents_bp)
+
+from flask import g
 from flask_session import Session
 from redis import Redis
 from functions_settings import get_settings
+from functions_authentication import get_current_user_id
+import pickle
+import json
+
 
 
 
@@ -43,13 +54,71 @@ from route_external_documents import *
 from route_external_groups import *
 from route_external_admin_settings import *
 
+# Semantic Kernel integration
+from semantic_kernel import Kernel
+from semantic_kernel_loader import initialize_semantic_kernel 
+import builtins
+import logging
+
 
 # =================== Helper Functions ===================
 @app.before_first_request
 def before_first_request():
+    print("Initializing application...")
     settings = get_settings()
+    print(f"Application settings: {settings}")
     initialize_clients(settings)
     ensure_custom_logo_file_exists(app, settings)
+    # Enable Application Insights logging globally if configured
+    print("Setting up Application Insights logging...")
+    setup_appinsights_logging(settings)
+    logging.basicConfig(level=logging.DEBUG)
+
+
+    # Setup session handling
+    if settings.get('enable_redis_cache'):
+        redis_url = settings.get('redis_url', '').strip()
+        redis_auth_type = settings.get('redis_auth_type', 'key').strip().lower()
+
+        if redis_url:
+            app.config['SESSION_TYPE'] = 'redis'
+            if redis_auth_type == 'managed_identity':
+                print("Redis enabled using Managed Identity")
+                credential = DefaultAzureCredential()
+                redis_hostname = redis_url.split('.')[0]  # Extract the first part of the hostname
+                token = credential.get_token(f"https://{redis_hostname}.cacheinfra.windows.net:10225/appid")
+                app.config['SESSION_REDIS'] = Redis(
+                    host=redis_url,
+                    port=6380,
+                    db=0,
+                    password=token.token,
+                    ssl=True
+                )
+            else:
+                # Default to key-based auth
+                redis_key = settings.get('redis_key', '').strip()
+                print("Redis enabled using Access Key")
+                app.config['SESSION_REDIS'] = Redis(
+                    host=redis_url,
+                    port=6380,
+                    db=0,
+                    password=redis_key,
+                    ssl=True
+                )
+        else:
+            print("Redis enabled but URL missing; falling back to filesystem.")
+            app.config['SESSION_TYPE'] = 'filesystem'
+    else:
+        app.config['SESSION_TYPE'] = 'filesystem'
+
+    # Initialize Semantic Kernel and plugins
+    enable_semantic_kernel = settings.get('enable_semantic_kernel', False)
+    per_user_semantic_kernel = settings.get('per_user_semantic_kernel', False)
+    if enable_semantic_kernel and not per_user_semantic_kernel:
+        print("Semantic Kernel is enabled. Initializing...")
+        initialize_semantic_kernel()
+
+    Session(app)
 
     # Setup session handling
     if settings.get('enable_redis_cache'):
@@ -105,6 +174,20 @@ def to_datetime_filter(value):
 def format_datetime_filter(value):
     return value.strftime('%Y-%m-%d %H:%M')
 
+# =================== SK Hot Reload Handler ===================
+@app.before_request
+def reload_kernel_if_needed():
+    if getattr(builtins, "kernel_reload_needed", False):
+        print("[SK Loader] Hot reload: re-initializing Semantic Kernel and agents due to settings change.")
+        """Commneted out because hot reload is not fully supported yet.
+        log_event(
+            "[SK Loader] Hot reload: re-initializing Semantic Kernel and agents due to settings change.",
+            level=logging.INFO
+        )
+        initialize_semantic_kernel()
+        """
+        setattr(builtins, "kernel_reload_needed", False)
+
 @app.after_request
 def add_security_headers(response):
     response.headers['X-Content-Type-Options'] = 'nosniff'
@@ -151,6 +234,17 @@ def favicon():
 @app.route('/acceptable_use_policy.html')
 def acceptable_use_policy():
     return render_template('acceptable_use_policy.html')
+
+@app.route('/api/semantic-kernel/plugins')
+def list_semantic_kernel_plugins():
+    """Test endpoint: List loaded Semantic Kernel plugins and their functions."""
+    global kernel
+    if not kernel:
+        return {"error": "Kernel not initialized"}, 500
+    plugins = {}
+    for plugin_name, plugin in kernel.plugins.items():
+        plugins[plugin_name] = [func.name for func in plugin.functions.values()]
+    return {"plugins": plugins}
 
 
 # =================== Front End Routes ===================
@@ -238,5 +332,6 @@ register_route_external_admin_settings(app)
 
 if __name__ == '__main__':
     settings = get_settings()
+    print(f"Starting Single App. Initializing clients...")
     initialize_clients(settings)
     app.run(debug=False)

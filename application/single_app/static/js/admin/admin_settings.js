@@ -1,4 +1,5 @@
 // admin_settings.js
+import { showToast } from "../chat/chat-toast.js";
 
 let gptSelected = window.gptSelected || [];
 let gptAll      = window.gptAll || [];
@@ -57,12 +58,13 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // --- Setup form change tracking ---
     setupFormChangeTracking();
-    
+
     // --- Setup Settings Walkthrough (after all other components are ready) ---
     setTimeout(() => {
         setupSettingsWalkthrough();
     }, 100);
-    
+
+
     // --- Add form submission validation ---
     if (adminForm) {
         adminForm.addEventListener('submit', function(e) {
@@ -673,13 +675,124 @@ function updateClassificationJsonInput() {
 }
 
 function setupToggles() {
+    // --- Enable Agents (Semantic Kernel) Toggle ---
+    const agentsMainContent = document.getElementById('agents-main-content');
+    const agentsDisabledMsg = document.getElementById('agents-disabled-message');
+    const pluginsMainContent = document.getElementById('plugins-main-content');
+    const pluginsDisabledMsg = document.getElementById('plugins-disabled-message');
+    // Use backend-rendered value to show/hide content
+    if (typeof settings !== 'undefined' && settings) {
+        const enabled = !!settings.enable_semantic_kernel;
+        if (agentsMainContent && agentsDisabledMsg) {
+            agentsMainContent.style.display = enabled ? 'block' : 'none';
+            agentsDisabledMsg.style.display = enabled ? 'none' : 'block';
+        }
+        if (pluginsMainContent && pluginsDisabledMsg) {
+            pluginsMainContent.style.display = enabled ? 'block' : 'none';
+            pluginsDisabledMsg.style.display = enabled ? 'none' : 'block';
+        }
+    }
+    if (document.getElementById('core-plugin-toggles')) {
+        // --- Core Plugin Toggles ---
+        const timeToggle = document.getElementById('toggle-time-plugin');
+        const httpToggle = document.getElementById('toggle-http-plugin');
+        const waitToggle = document.getElementById('toggle-wait-plugin');
+        const factMemoryToggle = document.getElementById('toggle-fact-memory-plugin');
+        const embeddingToggle = document.getElementById('toggle-default-embedding-model-plugin');
+        const toggles = [timeToggle, httpToggle, waitToggle, factMemoryToggle, embeddingToggle];
+        // Feedback area
+        let feedbackDiv = document.getElementById('core-plugin-toggles-feedback');
+        if (!feedbackDiv) {
+            feedbackDiv = document.createElement('div');
+            feedbackDiv.id = 'core-plugin-toggles-feedback';
+            feedbackDiv.className = 'mt-2';
+            const togglesDiv = document.getElementById('core-plugin-toggles');
+            if (togglesDiv) togglesDiv.appendChild(feedbackDiv);
+        }
+
+        // Helper to show feedback
+        function showFeedback(msg, type = 'info') {
+            feedbackDiv.innerHTML = `<div class="alert alert-${type} py-1 px-2 mb-0">${msg}</div>`;
+            setTimeout(() => { feedbackDiv.innerHTML = ''; }, 3000);
+        }
+
+        // Fetch current settings and set toggle states
+        async function loadCorePluginToggles() {
+            try {
+                const resp = await fetch('/api/admin/plugins/settings');
+                if (!resp.ok) throw new Error('Failed to fetch plugin settings');
+                const settings = await resp.json();
+                if (timeToggle) timeToggle.checked = !!settings.enable_time_plugin;
+                if (httpToggle) httpToggle.checked = !!settings.enable_http_plugin;
+                if (waitToggle) waitToggle.checked = !!settings.enable_wait_plugin;
+                if (embeddingToggle) embeddingToggle.checked = !!settings.enable_default_embedding_model_plugin;
+                if (factMemoryToggle) factMemoryToggle.checked = !!settings.enable_fact_memory_plugin;
+            } catch (err) {
+                showFeedback('Error loading plugin toggle states: ' + err.message, 'danger');
+            }
+        }
+        // Initial load
+        loadCorePluginToggles();
+
+        // Handler for toggle changes
+        function onToggleChange() {
+            // Disable toggles while saving
+            toggles.forEach(t => t && (t.disabled = true));
+            const payload = {
+                enable_time_plugin: timeToggle ? timeToggle.checked : false,
+                enable_http_plugin: httpToggle ? httpToggle.checked : false,
+                enable_wait_plugin: waitToggle ? waitToggle.checked : false,
+                enable_default_embedding_model_plugin: embeddingToggle ? embeddingToggle.checked : false,
+                enable_fact_memory_plugin: factMemoryToggle ? factMemoryToggle.checked : false
+            };
+            fetch('/api/admin/plugins/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(async resp => {
+                const data = await resp.json();
+                if (resp.ok) {
+                    showFeedback('Plugin settings updated. Restart required to take effect.', 'success');
+                } else {
+                    showFeedback('Error: ' + (data.error || 'Failed to update plugin settings'), 'danger');
+                }
+            })
+            .catch(err => {
+                showFeedback('Error: ' + err.message, 'danger');
+            })
+            .finally(() => {
+                toggles.forEach(t => t && (t.disabled = false));
+            });
+        }
+        toggles.forEach(t => t && t.addEventListener('change', onToggleChange));
+
+        // --- Ensure toggles always reflect backend state on Plugins tab activation ---
+        // Listen for Bootstrap tab activation events
+        document.querySelectorAll('button[data-bs-toggle="tab"]').forEach(tabBtn => {
+            tabBtn.addEventListener('shown.bs.tab', function (event) {
+                const target = event.target.getAttribute('data-bs-target');
+                if (target === '#plugins') {
+                    loadCorePluginToggles();
+                }
+            });
+        });
+    }
+
     // Existing toggles...
+    // Logging toggle: mark form as modified on change
+    const enableAppInsightsLoggingToggle = document.getElementById('enable_appinsights_global_logging');
+    if (enableAppInsightsLoggingToggle) {
+        enableAppInsightsLoggingToggle.addEventListener('change', () => {
+            markFormAsModified();
+        });
+    }
+
     const enableGptApim = document.getElementById('enable_gpt_apim');
     if (enableGptApim) {
         enableGptApim.addEventListener('change', function () {
             document.getElementById('non_apim_gpt_settings').style.display = this.checked ? 'none' : 'block';
             document.getElementById('apim_gpt_settings').style.display = this.checked ? 'block' : 'none';
-            
             // Toggle visibility of APIM model note and fetch step in the walkthrough
             const apimModelNote = document.getElementById('apim-model-note');
             const fetchModelsStep = document.getElementById('fetch-models-step');
@@ -687,7 +800,6 @@ function setupToggles() {
                 apimModelNote.style.display = this.checked ? 'block' : 'none';
                 fetchModelsStep.style.display = this.checked ? 'none' : 'block';
             }
-            
             markFormAsModified();
         });
     }
@@ -727,7 +839,6 @@ function setupToggles() {
             redisSettingsDiv.style.display = this.checked ? 'block' : 'none';
         });
     }
-
 
     const enableEnhancedCitation = document.getElementById('enable_enhanced_citations');
     if (enableEnhancedCitation) {
@@ -1390,7 +1501,10 @@ document.addEventListener('DOMContentLoaded', () => {
       // 1) check for missing fields
       fetch('/api/admin/settings/check_index_fields', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'same-origin',
         body: JSON.stringify({ indexType: type })
       })
       .then(r => r.json())
@@ -1407,7 +1521,10 @@ document.addEventListener('DOMContentLoaded', () => {
         fixBtn.disabled = true;
         fetch('/api/admin/settings/fix_index_fields', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          credentials: 'same-origin',
           body: JSON.stringify({ indexType: type })
         })
         .then(r => r.json())
@@ -1772,22 +1889,63 @@ function shouldSkipWalkthroughStep(stepNumber) {
 }
 
 /**
- * Find the next applicable step after a given step
- * @param {number} currentStep - Current step number
- * @returns {number} Next applicable step number or 12 (last step) if none found
+ * Find the next applicable step based on enabled features
+ * @param {number} currentStep - The current step number
+ * @returns {number} The next applicable step number or -1 if none found
  */
+/*
 function findNextApplicableStep(currentStep) {
-    const availableSteps = calculateAvailableWalkthroughSteps();
+    const workspaceEnabled = document.getElementById('enable_user_workspace')?.checked || false;
+    const groupsEnabled = document.getElementById('enable_group_workspaces')?.checked || false;
+    const workspacesEnabled = workspaceEnabled || groupsEnabled;
     
-    // Find the first available step after the current one
-    for (let i = 0; i < availableSteps.length; i++) {
-        if (availableSteps[i] > currentStep) {
-            return availableSteps[i];
+    // Start checking from the next step
+    let nextStep = currentStep + 1;
+    
+    // Maximum step to avoid infinite loop
+    const maxSteps = 12;
+    
+    while (nextStep <= maxSteps) {
+        // Check if this step is applicable based on conditions
+        switch (nextStep) {
+            case 5: // Embedding settings
+            case 6: // AI Search settings 
+            case 7: // Document Intelligence settings
+                if (!workspacesEnabled) {
+                    // Skip these steps if workspaces not enabled
+                    nextStep++;
+                    continue;
+                }
+                return nextStep;
+                
+            case 8: // Video support
+                const videoEnabled = document.getElementById('enable_video_file_support')?.checked || false;
+                if (!workspacesEnabled || !videoEnabled) {
+                    // Skip this step if workspaces not enabled or video not enabled
+                    nextStep++;
+                    continue;
+                }
+                return nextStep;
+                
+            case 9: // Audio support
+                const audioEnabled = document.getElementById('enable_audio_file_support')?.checked || false;
+                if (!workspacesEnabled || !audioEnabled) {
+                    // Skip this step if workspaces not enabled or audio not enabled
+                    nextStep++;
+                    continue;
+                }
+                return nextStep;
+                
+            default:
+                // All other steps are always applicable
+                return nextStep;
         }
     }
     
-    return 12; // Default to last step if no next step found
+    // If we've gone past all steps, return -1
+    return -1;
 }
+*/
 
 /**
  * Find the previous applicable step before a given step
@@ -2067,6 +2225,102 @@ function updateStepCompletionStatus(stepNumber) {
         
         // Update or hide the requirement alert
         if (requirementAlert) {
+            requirementAlert.classList.remove('alert-danger');
+            requirementAlert.classList.add('alert-success');
+            requirementAlert.innerHTML = '<strong>Complete:</strong> Configuration finished for this step.';
+        }
+    } else {
+        // Ensure badges show required status
+        badges.forEach(badge => {
+            badge.classList.remove('bg-success');
+            badge.classList.add('bg-danger');
+            badge.textContent = 'Required';
+        });
+        
+        // Reset requirement alert if needed
+        if (requirementAlert && requirementAlert.classList.contains('alert-success')) {
+            requirementAlert.classList.remove('alert-success');
+            requirementAlert.classList.add('alert-danger');
+            
+            // Reset alert text based on step number
+            switch (stepNumber) {
+                case 2:
+                    requirementAlert.innerHTML = '<strong>Required:</strong> GPT API configuration is required for Simple Chat to function.';
+                    break;
+                case 3:
+                    requirementAlert.innerHTML = '<strong>Required:</strong> Select at least one GPT model for users to use.';
+                    break;
+                case 5:
+                    requirementAlert.innerHTML = '<strong>Required:</strong> Embedding API configuration is required if workspaces are enabled.';
+                    break;
+                case 6:
+                    requirementAlert.innerHTML = '<strong>Required:</strong> Azure AI Search is required if workspaces are enabled.';
+                    break;
+                case 7:
+                    requirementAlert.innerHTML = '<strong>Required:</strong> Document Intelligence is required if workspaces are enabled.';
+                    break;
+                case 8:
+                    requirementAlert.innerHTML = '<strong>Required:</strong> Video support configuration is required if workspaces are enabled.';
+                    break;
+                case 9:
+                    requirementAlert.innerHTML = '<strong>Required:</strong> Audio support configuration is required if workspaces are enabled.';
+                    break;
+            }
+        }
+    }
+    
+    // Update optional features status if they're enabled/configured
+    if (optionalFeaturesEnabled) {
+        // Update optional badges to show as complete
+        optionalBadges.forEach(badge => {
+            badge.classList.remove('bg-secondary');
+            badge.classList.add('bg-success');
+            badge.textContent = 'Complete';
+        });
+        
+        // Update optional alert if present
+        if (optionalAlert) {
+            optionalAlert.classList.remove('alert-info');
+            optionalAlert.classList.add('alert-success');
+            optionalAlert.innerHTML = '<strong>Complete:</strong> Optional features configured successfully.';
+        }
+    } else {
+        // Keep optional badges as is
+        optionalBadges.forEach(badge => {
+            badge.classList.remove('bg-success');
+            badge.classList.add('bg-secondary');
+            badge.textContent = 'Optional';
+        });
+        
+        // Reset optional alert if it was changed
+        if (optionalAlert && optionalAlert.classList.contains('alert-success')) {
+            optionalAlert.classList.remove('alert-success');
+            optionalAlert.classList.add('alert-info');
+            
+            // Reset optional alert text based on step number
+            switch (stepNumber) {
+                case 1:
+                    optionalAlert.innerHTML = '<strong>Optional:</strong> Configure your application title and logo.';
+                    break;
+                case 4:
+                    optionalAlert.innerHTML = '<strong>Optional:</strong> Enable personal and group workspaces for document management.';
+                    break;
+                case 10:
+                    optionalAlert.innerHTML = '<strong>Optional:</strong> Enable content safety features to filter inappropriate content.';
+                    break;
+                case 11:
+                    optionalAlert.innerHTML = '<strong>Optional:</strong> Enable user feedback and conversation archiving.';
+                    break;
+                case 12:
+                    optionalAlert.innerHTML = '<strong>Optional:</strong> Enable enhanced citations and image generation features.';
+                    break;
+                default:
+                    optionalAlert.innerHTML = '<strong>Optional:</strong> This configuration is optional.';
+            }
+        }
+    }
+}
+
 /**
  * Setup field change listeners for real-time validation during walkthrough
  */
@@ -2162,101 +2416,6 @@ function setupWalkthroughFieldListeners() {
             setTimeout(() => updateStepCompletionStatus(5), 100);
         }
     });
-}
-            requirementAlert.classList.remove('alert-danger');
-            requirementAlert.classList.add('alert-success');
-            requirementAlert.innerHTML = '<strong>Complete:</strong> Configuration finished for this step.';
-        }
-    } else {
-        // Ensure badges show required status
-        badges.forEach(badge => {
-            badge.classList.remove('bg-success');
-            badge.classList.add('bg-danger');
-            badge.textContent = 'Required';
-        });
-        
-        // Reset requirement alert if needed
-        if (requirementAlert && requirementAlert.classList.contains('alert-success')) {
-            requirementAlert.classList.remove('alert-success');
-            requirementAlert.classList.add('alert-danger');
-            
-            // Reset alert text based on step number
-            switch (stepNumber) {
-                case 2:
-                    requirementAlert.innerHTML = '<strong>Required:</strong> GPT API configuration is required for Simple Chat to function.';
-                    break;
-                case 3:
-                    requirementAlert.innerHTML = '<strong>Required:</strong> Select at least one GPT model for users to use.';
-                    break;
-                case 5:
-                    requirementAlert.innerHTML = '<strong>Required:</strong> Embedding API configuration is required if workspaces are enabled.';
-                    break;
-                case 6:
-                    requirementAlert.innerHTML = '<strong>Required:</strong> Azure AI Search is required if workspaces are enabled.';
-                    break;
-                case 7:
-                    requirementAlert.innerHTML = '<strong>Required:</strong> Document Intelligence is required if workspaces are enabled.';
-                    break;
-                case 8:
-                    requirementAlert.innerHTML = '<strong>Required:</strong> Video support configuration is required if workspaces are enabled.';
-                    break;
-                case 9:
-                    requirementAlert.innerHTML = '<strong>Required:</strong> Audio support configuration is required if workspaces are enabled.';
-                    break;
-            }
-        }
-    }
-    
-    // Update optional features status if they're enabled/configured
-    if (optionalFeaturesEnabled) {
-        // Update optional badges to show as complete
-        optionalBadges.forEach(badge => {
-            badge.classList.remove('bg-secondary');
-            badge.classList.add('bg-success');
-            badge.textContent = 'Complete';
-        });
-        
-        // Update optional alert if present
-        if (optionalAlert) {
-            optionalAlert.classList.remove('alert-info');
-            optionalAlert.classList.add('alert-success');
-            optionalAlert.innerHTML = '<strong>Complete:</strong> Optional features configured successfully.';
-        }
-    } else {
-        // Keep optional badges as is
-        optionalBadges.forEach(badge => {
-            badge.classList.remove('bg-success');
-            badge.classList.add('bg-secondary');
-            badge.textContent = 'Optional';
-        });
-        
-        // Reset optional alert if it was changed
-        if (optionalAlert && optionalAlert.classList.contains('alert-success')) {
-            optionalAlert.classList.remove('alert-success');
-            optionalAlert.classList.add('alert-info');
-            
-            // Reset optional alert text based on step number
-            switch (stepNumber) {
-                case 1:
-                    optionalAlert.innerHTML = '<strong>Optional:</strong> Configure your application title and logo.';
-                    break;
-                case 4:
-                    optionalAlert.innerHTML = '<strong>Optional:</strong> Enable personal and group workspaces for document management.';
-                    break;
-                case 10:
-                    optionalAlert.innerHTML = '<strong>Optional:</strong> Enable content safety features to filter inappropriate content.';
-                    break;
-                case 11:
-                    optionalAlert.innerHTML = '<strong>Optional:</strong> Enable user feedback and conversation archiving.';
-                    break;
-                case 12:
-                    optionalAlert.innerHTML = '<strong>Optional:</strong> Enable enhanced citations and image generation features.';
-                    break;
-                default:
-                    optionalAlert.innerHTML = '<strong>Optional:</strong> This configuration is optional.';
-            }
-        }
-    }
 }
 
 /**
@@ -2387,63 +2546,6 @@ function navigatePreviousStep() {
         // If no previous step found, go to first step
         navigateToWalkthroughStep(1);
     }
-}
-
-/**
- * Find the next applicable step based on enabled features
- * @param {number} currentStep - The current step number
- * @returns {number} The next applicable step number or -1 if none found
- */
-function findNextApplicableStep(currentStep) {
-    const workspaceEnabled = document.getElementById('enable_user_workspace')?.checked || false;
-    const groupsEnabled = document.getElementById('enable_group_workspaces')?.checked || false;
-    const workspacesEnabled = workspaceEnabled || groupsEnabled;
-    
-    // Start checking from the next step
-    let nextStep = currentStep + 1;
-    
-    // Maximum step to avoid infinite loop
-    const maxSteps = 12;
-    
-    while (nextStep <= maxSteps) {
-        // Check if this step is applicable based on conditions
-        switch (nextStep) {
-            case 5: // Embedding settings
-            case 6: // AI Search settings 
-            case 7: // Document Intelligence settings
-                if (!workspacesEnabled) {
-                    // Skip these steps if workspaces not enabled
-                    nextStep++;
-                    continue;
-                }
-                return nextStep;
-                
-            case 8: // Video support
-                const videoEnabled = document.getElementById('enable_video_file_support')?.checked || false;
-                if (!workspacesEnabled || !videoEnabled) {
-                    // Skip this step if workspaces not enabled or video not enabled
-                    nextStep++;
-                    continue;
-                }
-                return nextStep;
-                
-            case 9: // Audio support
-                const audioEnabled = document.getElementById('enable_audio_file_support')?.checked || false;
-                if (!workspacesEnabled || !audioEnabled) {
-                    // Skip this step if workspaces not enabled or audio not enabled
-                    nextStep++;
-                    continue;
-                }
-                return nextStep;
-                
-            default:
-                // All other steps are always applicable
-                return nextStep;
-        }
-    }
-    
-    // If we've gone past all steps, return -1
-    return -1;
 }
 
 /**
