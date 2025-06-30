@@ -66,6 +66,13 @@ def get_settings():
         'azure_apim_image_gen_deployment': '',
         'azure_apim_image_gen_api_version': '',
 
+        # Redis Cache Settings
+        'enable_redis_cache': False,
+        'redis_url': '',
+        'redis_key': '',
+        'redis_auth_type': '',
+
+
         # Workspaces
         'enable_user_workspace': True,
         'enable_group_workspaces': True,
@@ -456,6 +463,8 @@ def sanitize_settings_for_user(full_settings: dict) -> dict:
         'azure_apim_web_search_subscription_key',
         'azure_apim_ai_search_subscription_key',
         'azure_apim_document_intelligence_subscription_key',
+        'redis_key',
+        'azure_apim_redis_subscription_key',
         'azure_apim_content_safety_subscription_key',
         'content_safety_key',
         'office_docs_key',

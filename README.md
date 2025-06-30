@@ -376,6 +376,7 @@ Deploy the necessary Azure services. For a quick estimate of monthly costs based
 | **Video Indexer**            | Standard Tier (Optional)                                     | Required only if Video Extraction feature is enabled. Pay-as-you-go per input content minute (All Insights). |
 | **Speech Service**           | Standard S0 (Optional)                                       | Required only if Audio Extraction feature is enabled. Pay-as-you-go per audio hour (Standard fast transcription). |
 | **Storage Account**          | General Purpose V2, LRS, Hot Tier (Optional)                 | Required only if Enhanced Citations feature is enabled. Stores processed files. Hierarchical Namespace (ADLS Gen2) recommended. |
+| **Azure Cache for Redis**    | Standard Tier, C0 cache size (Optional)                      | Required only if need the performance and scalability a Redis Cache for session data |
 
 > **Note**: Pricing is subject to change and varies significantly based on usage, region, specific configurations (e.g., network security, backup policies), and selected tiers. Always use the official Azure Pricing Calculator and monitor your Azure costs closely.
 
@@ -454,8 +455,20 @@ Deploy the necessary Azure services. For a quick estimate of monthly costs based
     *   **Account Kind**: StorageV2 (general purpose v2).
     *   **Enable hierarchical namespace** (Azure Data Lake Storage Gen2) is recommended for better organization if storing large volumes.
     *   Review Networking, Data protection, Encryption settings.
+    *   Note the **Connection String** (under Access Keys or SAS token). This will be configured in Admin Settings. If using Managed Identity, grant the App Service's Managed Identity the `Storage Blob Data Contributor` role.
     *   After deployment, note the **Connection String** (under Access Keys or SAS token). This will be configured in Admin Settings. If using Managed Identity, grant the App Service's Managed Identity the `Storage Blob Data Contributor` role.
-    *   Navigate to **Data Storage** > **Containers** > **+ Container**. Add two new containers - `user-documents` and `group-documents`
+    *   Navigate to **Data Storage** > **Containers** > **+ Container**. Add two new containers - `user-documents` and `group-documents
+12. **Deploy Azure Cache for Redis (Optional)**:
+    *   Create an **Azure Cache for Redis service**.
+    *   **Cache SKU**: Standard.
+    *   **Cache Size**: C0 (or higher based on requirements).
+    *   Review Networking settings.
+    *   Note the **Keys** if using key authenication.
+    *   After Redis is created, note the **Host Name**
+    *   **Authentication**: 
+    *    - If using keys, turn on Access Keys and note the primary key
+    *    - If using managed identities, enable Entra Authentication and select the app service managed identity 
+    *   NOTE: The Redis service can take 15-30 minutes to fully deploy`
 
 ### Application-Specific Configuration Steps
 
@@ -618,7 +631,7 @@ Core configuration values are managed via environment variables, typically set i
     # SECRET_KEY should be a long, random, secret string (e.g., 32+ chars) used for Flask session signing. Generate one securely.
     SECRET_KEY="Generate-A-Strong-Random-Secret-Key-Here!"
     # AZURE_ENVIRONMENT: Set based on your cloud environment
-    # Options: "public", "usgovernment"
+    # Options: "public", "usgovernment", "custom"
     AZURE_ENVIRONMENT="public"
     ```
     
@@ -680,7 +693,7 @@ You can directly edit Application Settings in the Azure portal using the "Advanc
     { "name": "CLIENT_ID", "value": "<your-app-registration-client-id>", "slotSetting": false },
     { "name": "TENANT_ID", "value": "<your-azure-ad-tenant-id>", "slotSetting": false },
     { "name": "SECRET_KEY", "value": "<your-flask-secret-key>", "slotSetting": false },
-    { "name": "AZURE_ENVIRONMENT", "value": "public", "slotSetting": false }, // or "usgovernment"
+    { "name": "AZURE_ENVIRONMENT", "value": "public", "slotSetting": false }, // or "usgovernment", or "custom"
     { "name": "BING_SEARCH_ENDPOINT", "value": "https://api.bing.microsoft.com/", "slotSetting": false },
 
     // --- Build & Runtime Settings ---
@@ -1237,7 +1250,7 @@ Services like Azure OpenAI, Document Intelligence, Content Safety, Speech Servic
       - [**File Processing Logs**](#file-processing-logs)
   - [Roadmap](#roadmap)
   - [Latest Features](#latest-features)
-    - [(v0.212.79)](#v021279)
+    - [(v0.212.91)](#v021291)
       - [New Features](#new-features)
       - [Bug Fixes](#bug-fixes)
   - [Release Notes](#release-notes)
