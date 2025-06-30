@@ -16,7 +16,14 @@ def get_settings():
         'enable_fact_memory_plugin': True,
         'enable_multi_agent_orchestration': False,
         'max_rounds_per_agent': 1,
-        'semantic_kernel_plugins': [],
+        'semantic_kernel_plugins': [
+            {
+                "name": "OpenApiPlugin",
+                "type": "openapi",
+                "description": "Semantic Kernel plugin for all OpenAPI endpoints.",
+                # Optionally, you can add more config here if needed
+            }
+        ],
         'enable_semantic_kernel': True,
         'per_user_semantic_kernel': False,
         'orchestration_type': 'default_agent',
