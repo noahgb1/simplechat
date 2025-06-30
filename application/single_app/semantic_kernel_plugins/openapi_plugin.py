@@ -1,22 +1,40 @@
+"""
+OpenAPI Semantic Kernel Plugin
+
+This plugin exposes all OpenAPI endpoints as Semantic Kernel plugin functions.
+"""
+
 import os
 import yaml
-from typing import Dict, Any, List
-from .base_plugin import BasePlugin
+from typing import Dict, Any, List, Optional
+from semantic_kernel_plugins.base_plugin import BasePlugin
+from semantic_kernel.functions import kernel_function
 
 class OpenApiPlugin(BasePlugin):
-    def __init__(self, openapi_path: str = None):
-        if openapi_path is None:
-            # Default path relative to this file
+    def __init__(self, manifest: Optional[Dict[str, Any]] = None):
+        # Accept manifest for dynamic config, else use default path
+        self.manifest = manifest or {}
+        openapi_path = self.manifest.get("openapi_path")
+        if not openapi_path:
             openapi_path = os.path.abspath(
                 os.path.join(os.path.dirname(__file__), "../../..", "artifacts/open_api/openapi.yaml")
             )
         with open(openapi_path, "r", encoding="utf-8") as f:
             self.openapi = yaml.safe_load(f)
+        # Optionally store endpoint/auth for future HTTP calls
+        self.endpoint = self.manifest.get("endpoint")
+        self.auth = self.manifest.get("auth", {})
         self._metadata = self._generate_metadata()
 
     @property
     def metadata(self) -> Dict[str, Any]:
-        return self._metadata
+        info = self.openapi.get("info", {})
+        return {
+            "name": info.get("title", "OpenAPIPlugin"),
+            "type": "openapi",
+            "description": info.get("description", ""),
+            "methods": self._metadata["methods"]
+        }
 
     def _generate_metadata(self) -> Dict[str, Any]:
         info = self.openapi.get("info", {})
@@ -61,19 +79,21 @@ class OpenApiPlugin(BasePlugin):
                     "returns": returns
                 })
         return {
-            "name": info.get("title", "OpenAPIPlugin"),
-            "type": "openapi",
-            "description": info.get("description", ""),
             "methods": methods
         }
 
     def get_functions(self) -> List[str]:
-        # Expose all operationIds as functions
-        return [m["name"] for m in self.metadata["methods"]]
+        # Expose all operationIds as functions (for UI listing)
+        return [m["name"] for m in self._metadata["methods"]] + ["call_operation"]
 
+    @kernel_function(
+        description="Call any OpenAPI operation by operation_id and parameters. Example: call_operation(operation_id='post_chat', message='Hello')"
+    )
     def call_operation(self, operation_id: str, **kwargs) -> Any:
-        # This is a stub. Actual HTTP call logic would go here.
-        # For now, just return the operation_id and parameters.
+        """
+        Generic OpenAPI operation caller.
+        This is a stub. Actual HTTP call logic would go here.
+        """
         return {
             "operation_id": operation_id,
             "parameters": kwargs
