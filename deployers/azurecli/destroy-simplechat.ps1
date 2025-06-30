@@ -23,6 +23,8 @@ $appPrefix ="sc"
 $resourceGroupName = "{0}-{1}-{2}-rg" -f $appPrefix, $productName, $productEnvironment
 $entraGroupName = "{0}-{1}-sg" -f $productName, $productEnvironment
 $appRegistrationName = "{1}-{2}-ar" -f $appPrefix, $productName, $productEnvironment
+
+$SecurityGroupPrefix = $entraGroupName
 $entraGroupName_Admins = $entraGroupName + "-Admins"
 $entraGroupName_Users = $entraGroupName + "-Users"
 $entraGroupName_CreateGroup = $entraGroupName + "-CreateGroup"
@@ -31,7 +33,7 @@ $entraGroupName_FeedbackAdmin = $entraGroupName + "-FeedbackAdmin"
 $entraSecurityGroupNames = @($entraGroupName_Admins, $entraGroupName_Users, $entraGroupName_CreateGroup, $entraGroupName_SafetyViolationAdmin, $entraGroupName_FeedbackAdmin)
 
 # --- Destroy Instance ---
-cls
+Clear-Host
 Write-Host "`nSimpleChat Destroy Executing:" -ForegroundColor Green
 
 Write-Host "`nHow to run this script: ./destroy-simplechat.ps1 -p <productName> -e <environment>" -ForegroundColor Yellow
@@ -74,4 +76,43 @@ if ($clientId -and $clientId -ne "00000000-0000-0000-0000-000000000000")
 }
 else {
     Write-Warning "Delete Entra Application Registration failed. Could not get clientid..."
+}
+
+
+try {
+    # Get all security groups where securityEnabled is true
+    # Convert the JSON output from az cli to PowerShell objects
+    $groupsToDelete = az ad group list | ConvertFrom-Json | Where-Object { $_.displayName -like "$SecurityGroupPrefix*" }
+
+    if (-not $groupsToDelete) {
+        Write-Host "`nNo Microsoft Entra Security Groups found with prefix '$SecurityGroupPrefix'." -ForegroundColor Green
+        exit 0
+    }
+
+    Write-Host "`nThe following Microsoft Entra Security Groups will be deleted:" -ForegroundColor Yellow
+    $groupsToDelete | Format-Table displayName, id, @{Name='CreatedDateTime'; Expression={$_.createdDateTime | Get-Date -Format 'yyyy-MM-dd HH:mm:ss'}}
+
+    $confirmation = Read-Host "Are you sure you want to delete these groups? Type 'yes' to confirm"
+
+    if ($confirmation -ne "yes") {
+        Write-Host "Deletion cancelled." -ForegroundColor Yellow
+        exit 0
+    }
+
+    foreach ($group in $groupsToDelete) {
+        Write-Host "Deleting group: '$($group.displayName)' (ID: $($group.id))..." -ForegroundColor DarkYellow
+        try {
+            az ad group delete --group $($group.id)
+            Write-Host "Successfully deleted group: '$($group.displayName)'" -ForegroundColor Green
+        }
+        catch {
+            Write-Warning "Failed to delete group: '$($group.displayName)'. Error: $($_.Exception.Message)"
+        }
+    }
+
+    Write-Host "Deletion process completed." -ForegroundColor Green
+}
+catch {
+    Write-Error "An error occurred: $($_.Exception.Message)"
+    Write-Error "Ensure Azure CLI is installed and you are logged in (`az login`)."
 }
