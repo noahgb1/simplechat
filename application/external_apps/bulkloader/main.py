@@ -111,7 +111,7 @@ def upload_document(file_path, user_id, active_group_id, classification, access_
             files = {'file': (file_name, f)}
             appLogger.info(f"`nAttempting to upload: {file_name} to url: {GROUP_DOCUMENTS_UPLOAD_URL}")
             appLogger.info(f"User_ID: {user_id}, Active_Group_OID: {active_group_id}")
-            input("Press Enter to process this file...") # For debugging purposes, uncomment to pause before upload
+            #input("Press Enter to process this file...") # For debugging purposes, uncomment to pause before upload
             response = requests.post(GROUP_DOCUMENTS_UPLOAD_URL, headers=headers, files=files, data=data, timeout=60) # Added timeout
             response.raise_for_status()  # Raise an HTTPError for bad responses (4xx or 5xx)
 

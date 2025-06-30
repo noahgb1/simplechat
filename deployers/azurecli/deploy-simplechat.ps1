@@ -103,20 +103,34 @@ $ErrorActionPreference = "Stop"
 $globalWhichAzurePlatform = "AzureUSGovernment" # Set to "AzureUSGovernment" for Azure Government, "AzureCloud" for Azure Commercial
 $paramTenantId = "6bc5b33e-bc05-493c-b076-8f8ce1331511"
 $paramLocation = "usgovvirginia" # Primary Azure Government region for deployments (e.g., usgovvirginia, usgovarizona, usgovtexas)
+
 $paramResourceOwnerId = "John Doe" # used for tagging resources
 $paramEnvironment = "sbx"        # Environment identifier (e.g., dev, test, prod, uat)
-$paramBaseName = "marge2"         # A short base name for your organization or project (e.g., contoso1, projectx2)
-$ACR_NAME = "acr8000" # Replace with your ACR name (must be globally unique, lowercase alphanumeric)
-$IMAGE_NAME = "simple-chat:2025-05-15_7" # Replace with your image name
+$paramBaseName = "marge20"         # A short base name for your organization or project (e.g., contoso1, projectx2)
+
+#Fill in the Azure Container Registry (ACR) name "OR" External registry details, noth both. Leave blank otherwise.
+$paramAzureContainerRegistryName = "" # Replace with your ACR name (must be globally unique, lowercase alphanumeric)
+# "OR"
+$paramExternalRegistryServer = "myregistry.jfrog.io" # e.g., "myregistry.jfrog.io" or "myregistry.azurecr.io" your_jfrog_registry_server
+$paramExternalRegistryUsername = "bingo" # Your JFrog Artifactory username
+$paramExternalRegistryPassword = "whatwhat" # Your JFrog Artifactory password or API key
+
+$paramImageAndTagName = "simple-chat:2025-05-15_7" # Replace with your image name
 
 $param_UseExisting_OpenAi_Instance = $true # False => Not working yet.
-$param_Existing_AzureOpenAi_ResourceName = "azureopenai1" # Azure OpenAI resource name
+$param_Existing_AzureOpenAi_ResourceName = "gregazureopenai1" # Azure OpenAI resource name
 $param_Existing_AzureOpenAi_ResourceGroupName = "azureopenairg" # Azure OpenAI resource group name
+
+# TBD - these values are not used yet.
 #$param_Existing_AzureOpenAi_Deployment_Model = "gpt-4o" # Azure OpenAI deployment name
 #$param_Existing_AzureOpenAi_Deployment_Embeddings = "text-embedding-ada-002" # Azure OpenAI deployment model name
 #$param_Existing_AzureOpenAi_SubscriptionId = "4c1ccd07-9ebc-4701-b87f-c249066e0905" # MUST BE IN SAME SUBSCRIPTION!
 
 $paramCreateEntraSecurityGroups = $true # Set to true to create Entra ID security groups
+
+$paramDeployRedisCache = $true # Set to true to create Entra ID security groups
+$paramRedisCacheSku = "Basic"                                 # SKU: Basic, Standard, Premium
+$paramRedisCacheCapacity = "0"                                # Size: 0 (250 MB) to 6 (53 GB). Depends on SKU.
 
 
 #---------------------------------------------------------------------------------------------
@@ -126,22 +140,24 @@ $paramCreateEntraSecurityGroups = $true # Set to true to create Entra ID securit
 # Azure Government specific settings (DO NOT MODIFY)
 if ($globalWhichAzurePlatform -eq "AzureCloud") {
     $paramCosmosDbUrlTemplate = "https://{0}.documents.azure.com:443/"
-    $ACR_BASE_URL = "$ACR_NAME.azurecr.us"
+    $ACR_BASE_URL = "$paramAzureContainerRegistryName.azurecr.us"
     $paramRegistryServer = "https://acr8000.azurecr.io"
     $APPREG_REDIRECT_URI = "https://{0}.azurewebsites.net/.auth/login/aad/callback"
     $APPREG_REDIRECT_URI1 = "https://{0}.azurewebsites.net/getAToken"
     $APPREG_LOGOUT_URL = "https://{0}.azurewebsites.net/logout"
     $paramGraphUrl = "https://graph.microsoft.com"
     $param_AzureOpenAi_Url = "https://{0}.openai.azure.com/" -f $param_Existing_AzureOpenAi_ResourceName
+    $ActiveDirectoryServiceEndpointResourceId = "https://management.core.windows.net/"
 } elseif ($globalWhichAzurePlatform -eq "AzureUSGovernment") {
     $paramCosmosDbUrlTemplate = "https://{0}.documents.azure.us:443/"
-    $ACR_BASE_URL = "$ACR_NAME.azurecr.us"
+    $ACR_BASE_URL = "$paramAzureContainerRegistryName.azurecr.us"
     $paramRegistryServer = "https://acr8000.azurecr.us"
     $APPREG_REDIRECT_URI = "https://{0}.azurewebsites.us/.auth/login/aad/callback"
     $APPREG_REDIRECT_URI1 = "https://{0}.azurewebsites.us/getAToken"
     $APPREG_LOGOUT_URL = "https://{0}.azurewebsites.us/logout"
     $paramGraphUrl = "https://graph.microsoft.us"
     $param_AzureOpenAi_Url = "https://{0}.openai.azure.us/" -f $param_Existing_AzureOpenAi_ResourceName
+    $ActiveDirectoryServiceEndpointResourceId = "https://management.core.usgovcloudapi.net/"
 } elseif ($globalWhichAzurePlatform -eq "AzureSecret") {
     # SET THESE VALUES FOR il6 (information is tented)
     $paramCosmosDbUrlTemplate = ""
@@ -152,6 +168,7 @@ if ($globalWhichAzurePlatform -eq "AzureCloud") {
     $APPREG_LOGOUT_URL = ""
     $paramGraphUrl = ""
     $param_AzureOpenAi_Url = ""
+    $ActiveDirectoryServiceEndpointResourceId = ""
 } else {
     Write-Error "Invalid Azure platform specified. Please set to 'AzureUSGovernment', 'AzureCloud', or 'AzureSecret"
     exit 1
@@ -186,12 +203,13 @@ $paramLogAnalyticsSuffix = "la"
 $paramManagedIdentitySuffix = "id"
 $paramSearchServiceSuffix = "search" # Note: Search service names need to be globally unique
 $paramStorageAccountSuffix = "sa" # Note: Storage account names need to be globally unique, lowercase alphanumeric, 3-24 chars
+$paramRedisCacheSuffix = "rc"
 #$paramContainerRegistrySuffix = "acr" # Note: ACR names need to be globally unique, lowercase alphanumeric
 
 # --- Resource Specific Settings ---
 
 # App Service Plan
-$paramAppServicePlanSku = "P1V3" # Basic tier, 1 core, 1.75GB RAM. For US Gov, check available SKUs. (e.g., B1, P1V3, S1, I1V2)
+$paramAppServicePlanSku = "P1V3" # Basic tier, 1 core, 1.75GB RAM. For US Gov, check available SKUs. (e.g., F1, B1, P1V3, S1, I1V2)
 
 # App Service (Web App)
 #$paramAppServiceRuntime = "DOTNETCORE|8.0" # Example runtime. Others: "NODE|18-lts", "PYTHON|3.11", "JAVA|17-java17"
@@ -302,10 +320,13 @@ $entraGroupName_CreateGroup = "$($paramBaseName)-$($paramEnvironment)-$($paramEn
 $entraGroupName_SafetyViolationAdmin = "$($paramBaseName)-$($paramEnvironment)-$($paramEntraGroupNameSuffix)-SafetyViolationAdmin"
 $entraGroupName_FeedbackAdmin = "$($paramBaseName)-$($paramEnvironment)-$($paramEntraGroupNameSuffix)-FeedbackAdmin"
 $global_EntraSecurityGroupNames = @($entraGroupName_Admins, $entraGroupName_Users, $entraGroupName_CreateGroup, $entraGroupName_SafetyViolationAdmin, $entraGroupName_FeedbackAdmin)
+$redisCacheName = Get-ResourceName -ResourceTypeSuffix $paramRedisCacheSuffix
 
 
 #---------------------------------------------------------------------------------------------
-# Script Execution Starts Here
+#
+# Main Script Execution Starts Here
+#
 #---------------------------------------------------------------------------------------------
 Write-Host "`n`n"
 Write-Host "---------------------------------------------------------------------------------------------" -ForegroundColor Green
@@ -314,7 +335,7 @@ Write-Host "Starting Azure Resource Deployment for environment: $($paramEnvironm
 Write-Host "Resource Group Name: $($resourceGroupName)" -ForegroundColor Green
 Write-Host "---------------------------------------------------------------------------------------------" -ForegroundColor Green
 
-cd $PSScriptRoot #Do Not Modify
+Set-Location $PSScriptRoot #Do Not Modify
 
 $global_userType = az account show --query "user.type" -o tsv
 if ($global_userType -eq "servicePrincipal") {
@@ -331,18 +352,21 @@ if ($global_userType -eq "servicePrincipal") {
 }
 Write-Host "Logged in as: $currentUserObjectId" -ForegroundColor Yellow
 
-Write-Host "`nGetting Access Token Refreshed for: https://management.core.usgovcloudapi.net/" -ForegroundColor Yellow
-az account get-access-token --resource https://management.core.usgovcloudapi.net/ --output none
+Write-Host "`nGetting Access Token Refreshed for: {$ActiveDirectoryServiceEndpointResourceId}" -ForegroundColor Yellow
+az account get-access-token --resource $ActiveDirectoryServiceEndpointResourceId --output none
 if ($LASTEXITCODE -ne 0) { Write-Error "Failed to get ARM  Access Token." ; exit 1 } # Basic error check
-Write-Host "`nGetting Access Token Refreshed for: https://graph.microsoft.us/" -ForegroundColor Yellow
-az account get-access-token --resource https://graph.microsoft.us/ --output none
+Write-Host "`nGetting Access Token Refreshed for: {$paramGraphUrl}" -ForegroundColor Yellow
+az account get-access-token --resource $paramGraphUrl --output none
 if ($LASTEXITCODE -ne 0) { Write-Error "Failed to get MSGraph Access Token."; exit 1 } # Basic error check
 
 # Find ACR registry
-$paramRegistryServerUsername = $(az acr credential show --name $ACR_NAME --query username -o tsv)
-$paramRegistryServerPassword = $(az acr credential show --name $ACR_NAME --query passwords[0].value -o tsv)
-if (-not $paramRegistryServerUsername -or -not $paramRegistryServerPassword) {
-    Write-Error "Failed to retrieve ACR credentials. Ensure the ACR exists and you have access."
+if ($paramAzureContainerRegistryName) {
+    Write-Host "`n=====> Using Azure Container Registry: $($paramAzureContainerRegistryName)..."
+    $paramRegistryServerUsername = $(az acr credential show --name $paramAzureContainerRegistryName --query username -o tsv)
+    $paramRegistryServerPassword = $(az acr credential show --name $paramAzureContainerRegistryName --query passwords[0].value -o tsv)
+    if (-not $paramRegistryServerUsername -or -not $paramRegistryServerPassword) {
+        Write-Error "Failed to retrieve ACR credentials. Ensure the ACR exists and you have access."
+    }
 }
 
 # --- Create Entra ID Security Group ---
@@ -457,13 +481,34 @@ $appInsights = az monitor app-insights component show --app $appInsightsName --r
 if (-not $appInsights) {
     Write-Host "App Insights resource does not exist. Creating..."
     if ($logAnalyticsWorkspaceId) {
-        az monitor app-insights component create --app $appInsightsName --location $paramLocation --resource-group $resourceGroupName --kind "web" --workspace $logAnalyticsWorkspaceId --tags $tagsJson
+        $appInsights = az monitor app-insights component create --app $appInsightsName --location $paramLocation --resource-group $resourceGroupName --kind "web" --workspace $logAnalyticsWorkspaceId --tags $tagsJson --output json | ConvertFrom-Json
         if ($LASTEXITCODE -ne 0) { Write-Warning "Failed to create Application Insights '$($appInsightsName)' (workspace-based)." }
         else {
             $appInsightsInstrumentationKey = $(az monitor app-insights component show --app $appInsightsName --resource-group $resourceGroupName --query "instrumentationKey" -o tsv)
             $appInsightsConnectionString = $(az monitor app-insights component show --app $appInsightsName --resource-group $resourceGroupName --query "connectionString" -o tsv)
             Write-Host "Application Insights '$($appInsightsName)' created. Key: $appInsightsInstrumentationKey, Connection String: $appInsightsConnectionString"
         }
+
+        # Create/Update Diagnostic Setting
+        try {
+            az monitor diagnostic-settings create `
+                --name "SendAppInsightsToLogAnalytics" `
+                --resource $appInsights.id `
+                --resource-group $resourceGroupName `
+                --workspace $logAnalyticsWorkspaceId `
+                --logs "[{category-group:allLogs,enabled:true,retention-policy:{enabled:false,days:0}}]" `
+                --metrics '[{"category":"AllMetrics","enabled":true,"retentionPolicy":{"enabled":false,"days":0}}]' `
+                --output json
+
+            #TODO: --metrics is wrong format.
+            # --metrics '[{"category": "AllMetrics", "enabled": true}]' `
+            # Failed to parse '--metrics' argument: Shorthand Syntax Error: Please wrap whitespace character in single quotes:
+
+            Write-Host "Diagnostic settings for Application Insights configured successfully to Log Analytics."
+        } catch {
+            Write-Error "Failed to configure diagnostic settings for Application Insights: $($_.Exception.Message)"
+        }
+
     } else {
         Write-Error "Skipping Application Insights creation as Log Analytics Workspace creation failed or ID not found."
     }
@@ -538,8 +583,34 @@ if (-not $webApp) {
     # Ensure App Service Plan creation was successful
     if ($(az appservice plan show --name $appServicePlanName --resource-group $resourceGroupName --query "id" -o tsv)) {
         Write-Host "`n=====> Creating App Service (Web App): $($appServiceName)..."
-        az webapp create --resource-group $resourceGroupName --plan $appServicePlanName --name $appServiceName --deployment-container-image-name $ACR_BASE_URL/$IMAGE_NAME
-        #az webapp create --resource-group $resourceGroupName --plan $appServicePlanName --name $appServiceName --image $ACR_BASE_URL/$IMAGE_NAME
+
+        if ($paramAzureContainerRegistryName) {
+            # --- Deploy Azure App Service with Azure Container Registry Image ---
+            az webapp create --resource-group $resourceGroupName --plan $appServicePlanName --name $appServiceName --deployment-container-image-name $ACR_BASE_URL/$paramImageAndTagName --tags $tagsJson
+
+            Write-Host "`n=====> Setting App Service Container Image ..."
+            # Set the container image for the App Service
+            az webapp config container set `
+            --name $appServiceName `
+            --resource-group $resourceGroupName `
+            --container-image-name $ACR_BASE_URL/$paramImageAndTagName `
+            --container-registry-url $paramRegistryServer `
+            --container-registry-user $(az acr credential show --name $paramAzureContainerRegistryName --query username -o tsv) `
+            --container-registry-password $(az acr credential show --name $paramAzureContainerRegistryName --query passwords[0].value -o tsv)
+
+        } else {
+            # --- Deploy Azure App Service with Private Container Registry Image ---
+            Write-Host "Deploying App Service '$appServiceName' using image '$paramImageAndTagName' from '$paramExternalRegistryServer'..."
+            az webapp create `
+                --resource-group $resourceGroupName `
+                --plan $appServicePlanName `
+                --name $appServiceName `
+                --container-image-name "$paramExternalRegistryServer/$paramImageAndTagName" `
+                --container-registry-url "https://$paramExternalRegistryServer" `
+                --container-registry-user $paramExternalRegistryUsername `
+                --container-registry-password $paramExternalRegistryPassword `
+                --tags $tagsJson
+            }
 
         if ($LASTEXITCODE -ne 0) { Write-Warning "Failed to create App Service '$($appServiceName)'." }
         else {
@@ -551,22 +622,6 @@ if (-not $webApp) {
                 if ($LASTEXITCODE -ne 0) { Write-Warning "Failed to assign Managed Identity to App Service '$($appServiceName)'."}
             }
         }
-
-        Write-Host "`n=====> Setting App Service Container Image ..."
-        # az webapp config container set `
-        # --name $appServiceName `
-        # --resource-group $resourceGroupName `
-        # --container-image-name $ACR_BASE_URL/$IMAGE_NAME `
-        # --container-registry-url $paramRegistryServer `
-        # --docker-registry-server-user $(az acr credential show --name $ACR_NAME --query username -o tsv) `
-        # --docker-registry-server-password $(az acr credential show --name $ACR_NAME --query passwords[0].value -o tsv)
-        az webapp config container set `
-        --name $appServiceName `
-        --resource-group $resourceGroupName `
-        --container-image-name $ACR_BASE_URL/$IMAGE_NAME `
-        --container-registry-url $paramRegistryServer `
-        --container-registry-user $(az acr credential show --name $ACR_NAME --query username -o tsv) `
-        --container-registry-password $(az acr credential show --name $ACR_NAME --query passwords[0].value -o tsv)
 
         # TODO
         # CLASSIC WAY
@@ -610,6 +665,7 @@ if (-not $appRegistration -or $appRegistration.Count -eq 0) {
     else { Write-Host "App Registration '$($appRegistrationName)' created successfully." }
 
     $appRegistrationServicePrincipal = az ad sp create --id $appRegistration.appId
+    Write-Host "Creating App Registration Service Principal: '$($appRegistrationServicePrincipal)'..."
     if ($LASTEXITCODE -ne 0) { Write-Error "Failed to create App Registration Service Principal for '$($appRegistrationName)'." }
     else { Write-Host "App Registration '$($appRegistrationName)' Service Principal created successfully." }
 
@@ -637,9 +693,9 @@ if (-not $appRegistration -or $appRegistration.Count -eq 0) {
     #az ad app permission grant --id e432e60d-42c9-490f-a97b-94dab5010406 --api 00000003-0000-0000-c000-000000000000
     # This command is not yet supported on sovereign clouds
 
-
-    $currentUserObjectId = $(az ad signed-in-user show --query "id" -o tsv)
+    Write-Host "Adding current user as owner of the App Registration [$appRegistrationName]..."
     az ad app owner add --id $($appRegistration.id) --owner-object-id $currentUserObjectId
+
 } else {
     Write-Host "App already exists [$appRegistrationName]."
 }
@@ -672,38 +728,11 @@ if (-not $account) {
     Write-Host "Cosmos DB account '$cosmosDbName' already exists."
 }
 
-# Create cosmos db database and collection
-# TODO: SHOULD I DO THIS OR NOT? Web UI creates this.
-# Write-Host "`n=====> Creating Azure Cosmos DB database ..."
-# $databaseName = "SimpleChatDb"
-# $resourceObject = az cosmosdb sql database show --account-name $cosmosDbName --resource-group $resourceGroupName --name $databaseName --query "name" --output tsv 2>$null
-# if (-not $resourceObject) {
-#     Write-Host "Database '$databaseName' does not exist. Creating..."
-#     az cosmosdb sql database create --account-name $cosmosDbName --resource-group $resourceGroupName --name $databaseName --throughput 1000
-# } else {
-#     Write-Host "Database '$databaseName' already exists."
-# }
-
-# $containerName = "messages"
-# CosmosDb_CreateContainer $databaseName $containerName
-# $containerName = "documents"
-# CosmosDb_CreateContainer $databaseName $containerName
-# $containerName = "group_documents"
-# CosmosDb_CreateContainer $databaseName $containerName
-# $containerName = "settings"
-# CosmosDb_CreateContainer $databaseName $containerName
-# $containerName = "feedback"
-# CosmosDb_CreateContainer $databaseName $containerName
-# $containerName = "archived_conversations"
-# CosmosDb_CreateContainer $databaseName $containerName
-
 # --- Create Azure OpenAI Service ---
 # Note: Azure OpenAI requires registration and sometimes specific SKU availability.
 # This command might fail if the subscription is not enabled for OpenAI or if the SKU isn't available in the region.
-
 if ($param_UseExisting_OpenAi_Instance -eq $true) {
     Write-Host "`n=====> Using existing Azure OpenAI Service: $($param_Existing_AzureOpenAi_ResourceName)..."
-    #Write-Host "SubscriptionId: $param_Existing_AzureOpenAi_SubscriptionId"
     Write-Host "Resource Group name: $param_Existing_AzureOpenAi_ResourceGroupName"
     Write-Host "Open Ai Url: $param_AzureOpenAi_Url"
 } else {
@@ -712,7 +741,8 @@ if ($param_UseExisting_OpenAi_Instance -eq $true) {
     $account = az cognitiveservices account show --name $openAIName --resource-group $resourceGroupName --query "name" --output tsv 2>$null
     if (-not $account) {
         Write-Host "Cognitive Services account does not exist. Creating..."
-        az cognitiveservices account create --name $openAIName --resource-group $resourceGroupName --location $paramLocation --kind "OpenAI" --sku $paramCognitiveServicesSku --tags $tagsJson
+        $cogServicesObject = az cognitiveservices account create --name $openAIName --resource-group $resourceGroupName --location $paramLocation --kind "OpenAI" --sku $paramCognitiveServicesSku --tags $tagsJson --output json | ConvertFrom-Json
+        Write-Host "Cognitive Services created with Resource Id: $($cogServicesObject.id)"
         if ($LASTEXITCODE -ne 0) { Write-Warning "Failed to create Azure OpenAI Service '$($openAIName)'. Ensure your subscription is approved for OpenAI and the SKU/region is available in Azure Government." }
         else { Write-Host "Azure OpenAI Service '$($openAIName)' created successfully." }
     } else {
@@ -725,25 +755,38 @@ if ($param_UseExisting_OpenAi_Instance -eq $true) {
 Write-Host "`n=====> Creating Document Intelligence Service: $($docIntelName)..."
 $account = az cognitiveservices account show --name $docIntelName --resource-group $resourceGroupName --query "name" --output tsv 2>$null
 if (-not $account) {
-    Write-Host "Cognitive Services account does not exist. Creating..."
-    az cognitiveservices account create --name $docIntelName --resource-group $resourceGroupName --location $paramLocation --kind "FormRecognizer" --custom-domain $docIntelName --sku $paramCognitiveServicesSku --tags $tagsJson
+
+    # Checking for deleted Cognitive Services accounts
+    $deletedCogSvcExists = az cognitiveservices account show-deleted `
+    --name 'marge20-sbx-docintel' `
+    --resource-group 'sc-marge20-sbx-rg' `
+    --location 'usgovvirginia'
+
+    if ($deletedCogSvcExists) {
+        Write-Host "Recovering deleted Cognitive Services account: $($docIntelName)..."
+        az cognitiveservices account recover --name $docIntelName --resource-group $resourceGroupName --location $paramLocation
+    } else {
+        Write-Host "Cognitive Services account does not exist. Creating..."
+        az cognitiveservices account create --name $docIntelName --resource-group $resourceGroupName --location $paramLocation --kind "FormRecognizer" --custom-domain $docIntelName --sku $paramCognitiveServicesSku --tags $tagsJson --properties "{\"restore\": true}"
+    }
+    
     if ($LASTEXITCODE -ne 0) { Write-Warning "Failed to create Document Intelligence Service '$($docIntelName)'." }
     else { Write-Host "Document Intelligence Service '$($docIntelName)' created successfully." }
 } else {
     Write-Host "Cognitive Services account '$openAIName' already exists."
 }
 
-# --- Create Azure AI Search Service ---
-Write-Host "`n=====> Creating Azure AI Search Service: $($searchServiceName)..."
+# --- Create Azure Search Service ---
+Write-Host "`n=====> Creating Azure Search Service: $($searchServiceName)..."
 # Check if the search service exists
 $searchService = az search service show --name $searchServiceName --resource-group $resourceGroupName --query "name" --output tsv 2>$null
 if (-not $searchService) {
     Write-Host "Search service does not exist. Creating..."
     az search service create --name $searchServiceName --resource-group $resourceGroupName --location $paramLocation --sku $paramSearchSku --replica-count $paramSearchReplicaCount --partition-count $paramSearchPartitionCount --public-network-access enabled # or "disabled"
-    if ($LASTEXITCODE -ne 0) { Write-Warning "Failed to create Azure AI Search Service '$($searchServiceName)'. Check SKU availability and naming uniqueness." }
-    else { Write-Host "Azure AI Search Service '$($searchServiceName)' created successfully." }
+    if ($LASTEXITCODE -ne 0) { Write-Warning "Failed to create Azure Search Service '$($searchServiceName)'. Check SKU availability and naming uniqueness." }
+    else { Write-Host "Azure Search Service '$($searchServiceName)' created successfully." }
 
-    # This doesn't work. Do this manually.
+    #TODO: This doesn't work. Do this manually.
     #Deploy index as json files to Azure Search
     # az search index create `
     # --name "simplechat-group-index" `
@@ -763,11 +806,12 @@ if (-not $searchService) {
 }
 
 
-# --- Create Azure AI Search Service ---
+# --- Create Azure Search Service ---
 Write-Host "`n=====> Setting Azure App Service App Settings : $($appServiceName)..."
 $paramCosmosDbPrimaryKey = $(az cosmosdb keys list --name $cosmosDbName --resource-group $resourceGroupName --query primaryMasterKey --output tsv)
-
-$fileName = "C:\temp\aiassistant-deployer2025\simplechat\deployer\azurecli\appSettings.json"
+Write-Host "Cosmos DB Primary Key: $paramCosmosDbPrimaryKey"
+$fileName = Join-Path -Path $PSScriptRoot -ChildPath "appSettings.json"
+Write-Host "Reading appSettings.json from: $fileName"
 $jsonAsText = Get-Content -Path $fileName -Raw
 $jsonAsText = $jsonAsText.Replace("<TOKEN_AZURE_ENDPOINT>", "usgovernment")
 $jsonAsText = $jsonAsText.Replace("<TOKEN_SCM_DO_BUILD_DURING_DEPLOYMENT>", "true")
@@ -779,13 +823,93 @@ $jsonAsText = $jsonAsText.Replace("<TOKEN_CLIENT_ID>", "$paramEntraAppRegistrati
 $jsonAsText = $jsonAsText.Replace("<TOKEN_SECRET_KEY>", "$paramEntraAppRegistrationSecret")
 #$jsonAsText = $jsonAsText.Replace("<TOKEN_MICROSOFT_PROVIDER_AUTHENTICATION_SECRET>", "$paramEntraAppRegistrationSecret_MicrosoftProvider")
 $jsonAsText = $jsonAsText.Replace("<TOKEN_WEBSITE_AUTH_AAD_ALLOWED_TENANTS>", "$paramTenantId")
-$jsonAsText = $jsonAsText.Replace("<TOKEN_DOCKER_REGISTRY_SERVER_URL>", "$paramRegistryServer")
-$jsonAsText = $jsonAsText.Replace("<TOKEN_DOCKER_REGISTRY_SERVER_USERNAME>", "$paramRegistryServerUsername")
-$jsonAsText = $jsonAsText.Replace("<TOKEN_DOCKER_REGISTRY_SERVER_PASSWORD>", "$paramRegistryServerPassword")
-$jsonAsText | Out-File -FilePath "C:\temp\aiassistant-deployer2025\simplechat\deployer\azurecli\appsettings-temp.json" -ErrorAction Stop
-az webapp config appsettings set --resource-group $resourceGroupName --name $appServiceName --settings '@appsettings-temp.json'
+
+if ($paramAzureContainerRegistryName) {
+    $jsonAsText = $jsonAsText.Replace("<TOKEN_DOCKER_REGISTRY_SERVER_URL>", "$paramRegistryServer")
+    $jsonAsText = $jsonAsText.Replace("<TOKEN_DOCKER_REGISTRY_SERVER_USERNAME>", "$paramRegistryServerUsername")
+    $jsonAsText = $jsonAsText.Replace("<TOKEN_DOCKER_REGISTRY_SERVER_PASSWORD>", "$paramRegistryServerPassword")
+} else {
+    $jsonAsText = $jsonAsText.Replace("<TOKEN_DOCKER_REGISTRY_SERVER_URL>", "$paramExternalRegistryServer")
+    $jsonAsText = $jsonAsText.Replace("<TOKEN_DOCKER_REGISTRY_SERVER_USERNAME>", "$paramExternalRegistryUsername")
+    $jsonAsText = $jsonAsText.Replace("<TOKEN_DOCKER_REGISTRY_SERVER_PASSWORD>", "$paramExternalRegistryPassword")
+}
+
+$outfileName = Join-Path -Path $PSScriptRoot -ChildPath "appsettings-temp.json"
+Write-Host "Writing app settings to: $outfileName"
+$jsonAsText | Out-File -FilePath $outfileName -ErrorAction Stop
+Write-Host "Writing app settings to app Service: $appServiceName"
+az webapp config appsettings set --resource-group $resourceGroupName --name $appServiceName --settings "@$outfileName"
 if ($LASTEXITCODE -ne 0) { Write-Warning "Failed to update Azure App Service App Settings." }
 else { Write-Host "Azure App Service App Settings configured." }
+
+
+##################################################################
+# --- Deploy and Configure Azure Cache for Redis (NEW SECTION) ---
+##################################################################
+if ($paramDeployRedisCache -eq $true) {
+    Write-Host "Deploying Azure Cache for Redis '$redisCacheName'..."
+
+    # Check if Redis Cache already exists
+    $redisExists = az redis show `
+        --name $redisCacheName `
+        --resource-group $resourceGroupName `
+        --query name `
+        --output tsv 2>$null
+
+    if (-not $redisExists) {
+        try {
+            az redis create `
+                --name $redisCacheName `
+                --resource-group $resourceGroupName `
+                --location $paramLocation `
+                --sku $paramRedisCacheSku `
+                --vm-size C$($paramRedisCacheCapacity) `
+                --output json
+
+            Write-Host "Azure Cache for Redis '$redisCacheName' deployed successfully."
+        } catch {
+            Write-Error "Failed to deploy Azure Cache for Redis '$redisCacheName': $($_.Exception.Message)"
+        }
+    } else {
+        Write-Host "Azure Cache for Redis '$redisCacheName' already exists."
+    }
+
+    # Configure Diagnostic Settings for Azure Cache for Redis to Log Analytics
+    Write-Host "Configuring diagnostic settings for Azure Cache for Redis to Log Analytics..."
+
+    # Retrieve Redis Cache Resource ID
+    $redisCacheResourceId = az redis show `
+        --name $redisCacheName `
+        --resource-group $resourceGroupName `
+        --query id `
+        --output tsv 2>$null
+
+    if (-not $redisCacheResourceId) {
+        Write-Error "Azure Cache for Redis resource '$redisCacheName' not found in resource group '$resourceGroupName'. Cannot configure diagnostic settings."
+    } elseif (-not $logAnalyticsWorkspaceId) {
+        Write-Error "Log Analytics Workspace ID is not available. Cannot configure diagnostic settings for Redis Cache."
+    } else {
+        Write-Host "Azure Cache for Redis Resource ID: $redisCacheResourceId"
+
+        # Create/Update Diagnostic Setting for Redis Cache
+        try {
+            az monitor diagnostic-settings create `
+                --name "SendRedisCacheToLogAnalytics" `
+                --resource $redisCacheResourceId `
+                --resource-group $resourceGroupName `
+                --workspace $logAnalyticsWorkspaceId `
+                --logs "[{category-group:allLogs,enabled:true,retention-policy:{enabled:false,days:0}}]" `
+                --metrics '[{"category":"AllMetrics","enabled":true,"retentionPolicy":{"enabled":false,"days":0}}]' `
+                --output json
+
+            Write-Host "Diagnostic settings for Azure Cache for Redis configured successfully to Log Analytics."
+        } catch {
+            Write-Error "Failed to configure diagnostic settings for Azure Cache for Redis: $($_.Exception.Message)"
+        }
+    }
+} else {
+    Write-Host "Skipping Azure Cache for Redis deployment as 'paramDeployRedisCache' is set to false."
+}
 
 
 ##############################################################
