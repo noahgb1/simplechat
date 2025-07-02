@@ -5,7 +5,6 @@ import requests
 import uuid
 import tempfile
 import json
-import pandas as pd
 import time
 import threading
 import random
