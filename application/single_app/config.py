@@ -151,14 +151,26 @@ storage_account_group_documents_container_name = "group-documents"
 # Initialize Azure Cosmos DB client
 cosmos_endpoint = os.getenv("AZURE_COSMOS_ENDPOINT")
 cosmos_key = os.getenv("AZURE_COSMOS_KEY")
-cosmos_authentication_type = os.getenv("AZURE_COSMOS_AUTHENTICATION_TYPE", "key") #key or managed_identity
-if cosmos_authentication_type == "managed_identity":
-    cosmos_client = CosmosClient(cosmos_endpoint, credential=DefaultAzureCredential())
-else:
-    cosmos_client = CosmosClient(cosmos_endpoint, cosmos_key)
+cosmos_authentication_type = os.getenv("AZURE_COSMOS_AUTHENTICATION_TYPE", "key") # key or managed_identity
 
-cosmos_database_name = "SimpleChat"
-cosmos_database = cosmos_client.create_database_if_not_exists(cosmos_database_name)
+if not cosmos_endpoint:
+    raise ValueError("AZURE_COSMOS_ENDPOINT environment variable is missing or empty")
+if cosmos_authentication_type == "key" and not cosmos_key:
+    raise ValueError("AZURE_COSMOS_KEY environment variable is missing or empty")
+
+try:
+    if cosmos_authentication_type == "managed_identity":
+        cosmos_client = CosmosClient(cosmos_endpoint, credential=DefaultAzureCredential())
+    else:
+        cosmos_client = CosmosClient(cosmos_endpoint, cosmos_key)
+
+    cosmos_database_name = "SimpleChat"
+    cosmos_database = cosmos_client.create_database_if_not_exists(cosmos_database_name)
+
+except exceptions.CosmosHttpResponseError as e:
+    print(f"Cosmos DB HTTP Error: {e.status_code}, {e.message}")
+except Exception as e:
+    print("Other error:", repr(e))
 
 cosmos_conversations_container_name = "conversations"
 cosmos_conversations_container = cosmos_database.create_container_if_not_exists(
