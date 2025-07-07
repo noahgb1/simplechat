@@ -169,8 +169,12 @@ try:
 
 except exceptions.CosmosHttpResponseError as e:
     print(f"Cosmos DB HTTP Error: {e.status_code}, {e.message}")
+    print("Please check your AZURE_COSMOS_ENDPOINT and authentication configuration.")
+    raise
 except Exception as e:
-    print("Other error:", repr(e))
+    print(f"Failed to initialize Cosmos DB: {repr(e)}")
+    print("Please verify your Cosmos DB configuration and network connectivity.")
+    raise
 
 cosmos_conversations_container_name = "conversations"
 cosmos_conversations_container = cosmos_database.create_container_if_not_exists(
