@@ -163,9 +163,27 @@ try:
     print("DEBUG: Attempting to initialize Cosmos DB client...")
     if cosmos_authentication_type == "managed_identity":
         print("DEBUG: Using managed identity authentication")
-        cosmos_client = CosmosClient(cosmos_endpoint, credential=DefaultAzureCredential())
+        print(f"DEBUG: Cosmos endpoint: {cosmos_endpoint}")
+        
+        # Test the managed identity credential first
+        try:
+            credential = DefaultAzureCredential()
+            print("DEBUG: DefaultAzureCredential created successfully")
+            
+            # Try to get a token to test if the credential works
+            token = credential.get_token("https://cosmos.azure.com/.default")
+            print("DEBUG: Successfully obtained token from managed identity")
+            
+        except Exception as cred_error:
+            print(f"DEBUG: Failed to get token from managed identity: {cred_error}")
+            print(f"DEBUG: Credential error type: {type(cred_error).__name__}")
+            raise
+            
+        cosmos_client = CosmosClient(cosmos_endpoint, credential=credential)
     else:
         print("DEBUG: Using key authentication")
+        print(f"DEBUG: Cosmos endpoint: {cosmos_endpoint}")
+        print(f"DEBUG: Cosmos key provided: {'Yes' if cosmos_key else 'No'}")
         cosmos_client = CosmosClient(cosmos_endpoint, cosmos_key)
 
     print("DEBUG: Creating/accessing database...")
