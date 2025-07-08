@@ -171,9 +171,22 @@ except exceptions.CosmosHttpResponseError as e:
     print(f"Cosmos DB HTTP Error: {e.status_code}, {e.message}")
     print("Please check your AZURE_COSMOS_ENDPOINT and authentication configuration.")
     raise
+except AttributeError as e:
+    print(f"Cosmos DB Authentication/Connection Error: {str(e)}")
+    print(f"Full error details: {repr(e)}")
+    print("This usually indicates authentication failure or invalid endpoint.")
+    print("Please verify:")
+    print("- AZURE_COSMOS_ENDPOINT is correct and reachable")
+    print("- If using managed_identity: the identity has proper Cosmos DB permissions")
+    print("- If using key auth: AZURE_COSMOS_KEY is valid")
+    raise
 except Exception as e:
-    print(f"Failed to initialize Cosmos DB: {repr(e)}")
-    print("Please verify your Cosmos DB configuration and network connectivity.")
+    print(f"Failed to initialize Cosmos DB: {str(e)}")
+    print(f"Full error details: {repr(e)}")
+    print(f"Error type: {type(e).__name__}")
+    import traceback
+    print("Full traceback:")
+    traceback.print_exc()
     raise
 
 cosmos_conversations_container_name = "conversations"
