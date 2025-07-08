@@ -174,6 +174,27 @@ try:
             token = credential.get_token("https://cosmos.azure.com/.default")
             print("DEBUG: Successfully obtained token from managed identity")
             
+            # Test with a simple REST call to check permissions
+            import requests
+            headers = {"Authorization": f"Bearer {token.token}"}
+            test_url = f"{cosmos_endpoint.rstrip('/')}"
+            print(f"DEBUG: Testing direct access to {test_url}")
+            
+            try:
+                response = requests.get(test_url, headers=headers, timeout=10)
+                print(f"DEBUG: Direct REST call status: {response.status_code}")
+                if response.status_code == 403:
+                    print("DEBUG: 403 Forbidden - Managed identity lacks Cosmos DB permissions")
+                elif response.status_code == 401:
+                    print("DEBUG: 401 Unauthorized - Authentication issue")
+                elif response.status_code == 200:
+                    print("DEBUG: 200 OK - Permissions look good")
+                else:
+                    print(f"DEBUG: Unexpected status code: {response.status_code}")
+                    print(f"DEBUG: Response: {response.text[:200]}")
+            except Exception as rest_error:
+                print(f"DEBUG: Direct REST call failed: {rest_error}")
+            
         except Exception as cred_error:
             print(f"DEBUG: Failed to get token from managed identity: {cred_error}")
             print(f"DEBUG: Credential error type: {type(cred_error).__name__}")
