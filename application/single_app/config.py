@@ -19,6 +19,7 @@ import openpyxl
 import xlrd
 import traceback
 import subprocess
+import sys
 import ffmpeg_binaries as ffmpeg_bin
 ffmpeg_bin.init()
 import ffmpeg as ffmpeg_py
@@ -159,34 +160,57 @@ if cosmos_authentication_type == "key" and not cosmos_key:
     raise ValueError("AZURE_COSMOS_KEY environment variable is missing or empty")
 
 try:
+    print("DEBUG: Attempting to initialize Cosmos DB client...")
     if cosmos_authentication_type == "managed_identity":
+        print("DEBUG: Using managed identity authentication")
         cosmos_client = CosmosClient(cosmos_endpoint, credential=DefaultAzureCredential())
     else:
+        print("DEBUG: Using key authentication")
         cosmos_client = CosmosClient(cosmos_endpoint, cosmos_key)
 
+    print("DEBUG: Creating/accessing database...")
     cosmos_database_name = "SimpleChat"
     cosmos_database = cosmos_client.create_database_if_not_exists(cosmos_database_name)
+    print("DEBUG: Cosmos DB initialization successful!")
 
 except exceptions.CosmosHttpResponseError as e:
-    print(f"Cosmos DB HTTP Error: {e.status_code}, {e.message}")
-    print("Please check your AZURE_COSMOS_ENDPOINT and authentication configuration.")
+    print("=" * 50, file=sys.stderr)
+    print("COSMOS DB HTTP ERROR", file=sys.stderr)
+    print("=" * 50, file=sys.stderr)
+    print(f"Status Code: {e.status_code}", file=sys.stderr)
+    print(f"Error Message: {e.message}", file=sys.stderr)
+    print("Please check your AZURE_COSMOS_ENDPOINT and authentication configuration.", file=sys.stderr)
+    print("=" * 50, file=sys.stderr)
+    sys.stderr.flush()
     raise
 except AttributeError as e:
-    print(f"Cosmos DB Authentication/Connection Error: {str(e)}")
-    print(f"Full error details: {repr(e)}")
-    print("This usually indicates authentication failure or invalid endpoint.")
-    print("Please verify:")
-    print("- AZURE_COSMOS_ENDPOINT is correct and reachable")
-    print("- If using managed_identity: the identity has proper Cosmos DB permissions")
-    print("- If using key auth: AZURE_COSMOS_KEY is valid")
+    print("=" * 50, file=sys.stderr)
+    print("COSMOS DB AUTHENTICATION/CONNECTION ERROR", file=sys.stderr)
+    print("=" * 50, file=sys.stderr)
+    print(f"Error message: {str(e)}", file=sys.stderr)
+    print(f"Full error details: {repr(e)}", file=sys.stderr)
+    print(f"Error type: {type(e).__name__}", file=sys.stderr)
+    print("\nThis usually indicates authentication failure or invalid endpoint.", file=sys.stderr)
+    print("Please verify:", file=sys.stderr)
+    print("- AZURE_COSMOS_ENDPOINT is correct and reachable", file=sys.stderr)
+    print("- If using managed_identity: the identity has proper Cosmos DB permissions", file=sys.stderr)
+    print("- If using key auth: AZURE_COSMOS_KEY is valid", file=sys.stderr)
+    print("\nFull traceback:", file=sys.stderr)
+    traceback.print_exc()
+    print("=" * 50, file=sys.stderr)
+    sys.stderr.flush()
     raise
 except Exception as e:
-    print(f"Failed to initialize Cosmos DB: {str(e)}")
-    print(f"Full error details: {repr(e)}")
-    print(f"Error type: {type(e).__name__}")
-    import traceback
-    print("Full traceback:")
+    print("=" * 50, file=sys.stderr)
+    print("COSMOS DB INITIALIZATION ERROR", file=sys.stderr)
+    print("=" * 50, file=sys.stderr)
+    print(f"Error message: {str(e)}", file=sys.stderr)
+    print(f"Full error details: {repr(e)}", file=sys.stderr)
+    print(f"Error type: {type(e).__name__}", file=sys.stderr)
+    print("\nFull traceback:", file=sys.stderr)
     traceback.print_exc()
+    print("=" * 50, file=sys.stderr)
+    sys.stderr.flush()
     raise
 
 cosmos_conversations_container_name = "conversations"
