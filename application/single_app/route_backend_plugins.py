@@ -11,6 +11,7 @@ import logging
 import os
 
 import importlib.util
+from functions_plugins import get_merged_plugin_settings
 from semantic_kernel_plugins.base_plugin import BasePlugin
 
 
@@ -101,23 +102,54 @@ def get_user_plugins():
     user_id = get_current_user_id()
     user_settings = get_user_settings(user_id)
     plugins = user_settings.get('settings', {}).get('plugins', [])
-    return jsonify(plugins)
+    # Always mark user plugins as is_global: False
+    for plugin in plugins:
+        plugin['is_global'] = False
+
+    # Check global/merge toggles
+    settings = get_settings()
+    merge_global = settings.get('merge_global_semantic_kernel_with_workspace', False)
+    if merge_global:
+        global_plugins = settings.get('semantic_kernel_plugins', [])
+        # Mark global plugins
+        for plugin in global_plugins:
+            plugin['is_global'] = True
+        # User plugins take precedence
+        all_plugins = {p['name']: p for p in plugins}
+        all_plugins.update({p['name']: p for p in global_plugins})
+        return jsonify(list(all_plugins.values()))
+    else:
+        return jsonify(plugins)
 
 @bpap.route('/api/user/plugins', methods=['POST'])
 @login_required
 def set_user_plugins():
     user_id = get_current_user_id()
     plugins = request.json if isinstance(request.json, list) else []
-    # Validate all plugins with JSON schema
+    # Get global plugin names (case-insensitive)
+    settings = get_settings()
+    global_plugins = settings.get('semantic_kernel_plugins', [])
+    global_plugin_names = set(p['name'].lower() for p in global_plugins if 'name' in p)
+    # Filter out plugins whose name matches a global plugin name
+    filtered_plugins = []
     for plugin in plugins:
+        if plugin.get('name', '').lower() in global_plugin_names:
+            continue  # Skip global plugins
+        # Remove is_global if present
+        if 'is_global' in plugin:
+            del plugin['is_global']
+        # Auto-fill type from metadata if missing or empty
+        if not plugin.get('type') and plugin.get('metadata', {}).get('type'):
+            plugin['type'] = plugin['metadata']['type']
         validation_error = validate_plugin(plugin)
         if validation_error:
             return jsonify({'error': f'Plugin validation failed: {validation_error}'}), 400
+        filtered_plugins.append(plugin)
     user_settings = get_user_settings(user_id)
     settings_to_update = user_settings.get('settings', {})
-    settings_to_update['plugins'] = plugins
+    settings_to_update['plugins'] = filtered_plugins
     update_user_settings(user_id, settings_to_update)
-    log_event("User plugins updated", extra={"user_id": user_id, "plugins_count": len(plugins)})
+    log_event("User plugins updated", extra={"user_id": user_id, "plugins_count": len(filtered_plugins)})
     return jsonify({'success': True})
 
 @bpap.route('/api/user/plugins/<plugin_name>', methods=['DELETE'])
@@ -169,8 +201,7 @@ def update_core_plugin_settings():
         'enable_http_plugin',
         'enable_wait_plugin',
         'enable_default_embedding_model_plugin',
-        'enable_fact_memory_plugin',
-        'enable_semantic_kernel'
+        'enable_fact_memory_plugin'
     ]
     updates = {}
     for key in expected_keys:
@@ -217,6 +248,11 @@ def add_plugin():
             return jsonify({'error': validation_error}), 400
         if allowed_types is not None and new_plugin.get('type') not in allowed_types:
             return jsonify({'error': f"Invalid plugin type: {new_plugin.get('type')}"}), 400
+        # Merge with schema to ensure all required fields are present
+        schema_dir = os.path.join(current_app.root_path, 'static', 'json', 'schemas')
+        merged = get_merged_plugin_settings(new_plugin.get('type'), new_plugin, schema_dir)
+        new_plugin['metadata'] = merged.get('metadata', new_plugin.get('metadata', {}))
+        new_plugin['additionalFields'] = merged.get('additionalFields', new_plugin.get('additionalFields', {}))
         # Prevent duplicate names (case-insensitive)
         if any(p['name'].lower() == new_plugin['name'].lower() for p in plugins):
             log_event("Add plugin failed: duplicate name", level=logging.WARNING, extra={"action": "add", "plugin": new_plugin})
@@ -248,6 +284,12 @@ def edit_plugin(plugin_name):
             return jsonify({'error': validation_error}), 400
         if allowed_types is not None and updated_plugin.get('type') not in allowed_types:
             return jsonify({'error': f"Invalid plugin type: {updated_plugin.get('type')}"}), 400
+        # Merge with schema to ensure all required fields are present
+        
+        schema_dir = os.path.join(current_app.root_path, 'static', 'json', 'schemas')
+        merged = get_merged_plugin_settings(updated_plugin.get('type'), updated_plugin, schema_dir)
+        updated_plugin['metadata'] = merged.get('metadata', updated_plugin.get('metadata', {}))
+        updated_plugin['additionalFields'] = merged.get('additionalFields', updated_plugin.get('additionalFields', {}))
         for i, p in enumerate(plugins):
             if p['name'] == plugin_name:
                 plugins[i] = updated_plugin
@@ -289,6 +331,21 @@ def delete_plugin(plugin_name):
     except Exception as e:
         log_event(f"Error deleting plugin: {e}", level=logging.ERROR)
         return jsonify({'error': 'Failed to delete plugin.'}), 500
+    
+
+# === PLUGIN SETTINGS MERGE ENDPOINT ===
+@bpap.route('/api/plugins/<plugin_type>/merge_settings', methods=['POST'])
+@login_required
+def merge_plugin_settings(plugin_type):
+    """
+    Accepts current settings (JSON body), merges with schema defaults, returns merged settings.
+    """
+    # Accepts: { ...current settings... }
+    current_settings = request.get_json(force=True)
+    # Path to schemas
+    schema_dir = os.path.join(current_app.root_path, 'static', 'json', 'schemas')
+    merged = get_merged_plugin_settings(plugin_type, current_settings, schema_dir)
+    return jsonify(merged)
 
 ##########################################################################################################
 # Dynamic Plugin Metadata Endpoint

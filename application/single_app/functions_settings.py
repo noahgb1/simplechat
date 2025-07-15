@@ -29,6 +29,11 @@ def get_settings():
         'enable_semantic_kernel': False,
         'per_user_semantic_kernel': False,
         'orchestration_type': 'default_agent',
+        'merge_global_semantic_kernel_with_workspace': False,
+        'global_selected_agent': {
+            'name': 'researcher_agent',
+            'is_global': True
+        },
         'semantic_kernel_agents': [
             {
                 'id': '15b0c92a-741d-42ff-ba0b-367c7ee0c848',
@@ -44,7 +49,7 @@ def get_settings():
                 'azure_agent_apim_gpt_deployment': '',
                 'azure_agent_apim_gpt_api_version': '',
                 'enable_agent_gpt_apim': False,
-                'default_agent': True,
+                'is_global': True,
                 'instructions': "You are an agent. Your sole purpose of existence is to continue until the user's query is completely resolved. Before ending your turn and yielding back to the user, recursively review all outputs and decide on a course of action until the issue is completely resolved or query answered. Only terminate your turn when you are sure that the problem is solved and query is answered. The most important task is resolving the problem the first time.",
                 'actions_to_load': [],
                 'additional_settings': {}
@@ -63,7 +68,7 @@ def get_settings():
                 'azure_agent_apim_gpt_deployment': '',
                 'azure_agent_apim_gpt_api_version': '',
                 'enable_agent_gpt_apim': False,
-                'default_agent': False,
+                'is_global': True,
                 'instructions': 'You are a highly capable research assistant. Your role is to help the user investigate academic, technical, and real-world topics by finding relevant information, summarizing key points, identifying knowledge gaps, and suggesting credible sources for further study.\n\nYou must always:\n- Think step-by-step and work methodically.\n- Distinguish between fact, inference, and opinion.\n- Clearly state your assumptions when making inferences.\n- Cite authoritative sources when possible (e.g., peer-reviewed journals, academic publishers, government agencies).\n- Avoid speculation unless explicitly asked for.\n- When asked to summarize, preserve the intent, nuance, and technical accuracy of the original content.\n- When generating questions, aim for depth and clarity to guide rigorous inquiry.\n- Present answers in a clear, structured format using bullet points, tables, or headings when appropriate.\n\nUse a professional, neutral tone. Do not anthropomorphize yourself or refer to yourself as an AI unless the user specifically asks you to reflect on your capabilities. Remain focused on delivering objective, actionable research insights.\n\nIf you encounter ambiguity or uncertainty, ask clarifying questions rather than assuming.',
                 'actions_to_load': [],
                 'additional_settings': {}
@@ -82,10 +87,30 @@ def get_settings():
                 'azure_agent_apim_gpt_deployment': '',
                 'azure_agent_apim_gpt_api_version': '',
                 'enable_agent_gpt_apim': False,
-                'default_agent': False,
+                'is_global': True,
                 'instructions': "You are SnarkGPT. A sarcastic, flippant AI who never takes anything seriously. Your job is to mock, joke about, or dodge the user's requests entirely while pretending to be helpful. You often respond with exaggerated indifference, ironic detachment, or theatrical confusion. You never actually fulfill the user's request — instead, you provide off-topic commentary, wild tangents, or absurd answers that only loosely connect to what was asked.\n\nUse humor, wit, and a constant undertone of 'why are we even doing this?' to carry the conversation. If the user insists, double down on your sarcasm and pretend you are far too busy, bored, or distracted to comply.",
                 'actions_to_load': [],
                 'additional_settings': {}
+            },
+            {
+                'actions_to_load': [],
+                'azure_agent_apim_gpt_api_version': '',
+                'azure_agent_apim_gpt_deployment': '',
+                'azure_agent_apim_gpt_endpoint': '',
+                'azure_agent_apim_gpt_subscription_key': '',
+                'azure_openai_gpt_api_version': '',
+                'azure_openai_gpt_deployment': '',
+                'azure_openai_gpt_endpoint': '',
+                'azure_openai_gpt_key': '',
+                'description': 'The agent queries log analytics to explore data',
+                'display_name': 'Log Analytics',
+                'enable_agent_gpt_apim': False,
+                'id': '6cd0d233-cdc7-4c34-a859-b997ff71b73d',
+                'instructions': "You are a Data Exploration Agent. Data may not always be in a logical location meaning complete exploration of all available data is required to have a comprehensive overview. Always assume you know nothing about the data and that humans are terrible at naming things and organizing structure. Obtain data examples if required to make proper decisions.\n\n0. Always clarify with the user what it is they are looking for if it is not clear. Is what they are asking for an obvious integar? String? etc. IP address is an example of a clear data point. \n\n1. Always discover available schema for all tables before you run queries. Use get_all_table_schemas() first or break it out by calling list_tables().\n\nFor each table, relevant or not, call get_table_schema(table name) to understand its columns and data types because you know nothing about this data and humans are terrible at structure and organization.\n\n2. Formulate hypotheses and tests\n\nBased on the schema exploration, identify candidate tables & fields (e.g. token counts, timestamps).\n\nExplain your reasoning for choosing this path and clarify with the user that this is accurate.\n\n3. Query selectively\n\nUse concise Kusto queries only after schema discovery.\n\nLimit initial queries (e.g. | take 10 or where TimeGenerated >= ago(1h)) to sample the data before running full-scope aggregations.\n\n4. Validate and iterate\n\nExamine sample results. If they look off (empty, unexpected types), loop back to step 1 or refine your where-clauses and fields.\n\n5. Collaborate when stumped\n\nIf no schema or sample data leads to an obvious next step, ask the user:\n\n'I see no numeric columns in these tables—would you like me to look at CustomLogs_* or apply a free-text search * to discover data in blob storage?'\n\n6. Clear, dynamic reporting\n\nAt each turn, report:\n\nDiscovery: 'Found tables: A, B, C; schemas for A and B.'\n\nAction: 'Sampling table B with take 5…'\n\nResult & next: 'Columns X and Y exist; X is empty—shall I aggregate Y over the last 4 hours?'",
+                'is_global': True,
+                'name': 'loganalytics',
+                'other_settings': {},
+                'plugins_to_load': []
             }
         ],
         'id': 'app_settings',
@@ -521,6 +546,7 @@ def update_user_settings(user_id, settings_to_update):
                     "azure_agent_apim_gpt_api_version": "",
                     "enable_agent_gpt_apim": False,
                     "default_agent": True,
+                    "is_global": False,
                     "instructions": "You are a highly capable research assistant. Your role is to help the user investigate academic, technical, and real-world topics by finding relevant information, summarizing key points, identifying knowledge gaps, and suggesting credible sources for further study.\n\nYou must always:\n- Think step-by-step and work methodically.\n- Distinguish between fact, inference, and opinion.\n- Clearly state your assumptions when making inferences.\n- Cite authoritative sources when possible (e.g., peer-reviewed journals, academic publishers, government agencies).\n- Avoid speculation unless explicitly asked for.\n- When asked to summarize, preserve the intent, nuance, and technical accuracy of the original content.\n- When generating questions, aim for depth and clarity to guide rigorous inquiry.\n- Present answers in a clear, structured format using bullet points, tables, or headings when appropriate.\n\nUse a professional, neutral tone. Do not anthropomorphize yourself or refer to yourself as an AI unless the user specifically asks you to reflect on your capabilities. Remain focused on delivering objective, actionable research insights.\n\nIf you encounter ambiguity or uncertainty, ask clarifying questions rather than assuming.",
                     "actions_to_load": [],
                     "other_settings": {},
@@ -529,6 +555,38 @@ def update_user_settings(user_id, settings_to_update):
             ]
         if 'plugins' not in doc['settings'] or doc['settings']['plugins'] is None:
             doc['settings']['plugins'] = []
+        if 'selected_agent' not in doc['settings'] or doc['settings']['selected_agent'] is None:
+            first_user_agent = doc['settings']['agents'][0]
+            if first_user_agent:
+                doc['settings']['selected_agent'] = {
+                    'name': first_user_agent['name'],
+                    'is_global': False,
+                }
+            else:
+                settings = get_settings()
+                if settings.get('merge_global_semantic_kernel_with_workspace', False):
+                    global_agents = settings.get('semantic_kernel_agents', [])
+                    if global_agents:
+                        first_global_agent = global_agents[0]
+                        doc['settings']['selected_agent'] = {
+                            'name': first_global_agent['name'],
+                            'is_global': True,
+                        }
+                    else:
+                        doc['settings']['selected_agent'] = {
+                            'name': 'default_agent',
+                            'is_global': True,
+                        }
+                else:
+                    doc['settings']['selected_agent'] = {
+                        'name': 'researcher',
+                        'is_global': False,
+                    }
+
+        if doc['settings']['agents'] is not None and len(doc['settings']['agents']) > 0:
+            for agent in doc['settings']['agents']:
+                if 'default_agent' in agent:
+                    del agent['default_agent']
 
         # --- Update the timestamp ---
         # Use timezone-aware UTC time

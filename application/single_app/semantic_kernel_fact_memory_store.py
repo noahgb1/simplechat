@@ -37,7 +37,7 @@ class FactMemoryStore:
     def get_fact(self, scope_id, fact_id):
         partition_key = self.get_partition_key(scope_id)
         try:
-            item = self.container.read_item(item=fact_id, partition_key=partition_key)
+            item = self.container.read_item(item=fact_id, scope_id=partition_key)
             return item.get("value")
         except exceptions.CosmosResourceNotFoundError:
             return None
