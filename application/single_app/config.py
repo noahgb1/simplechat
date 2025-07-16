@@ -86,7 +86,7 @@ executor.init_app(app)
 
 app.config['SECRET_KEY'] = os.getenv("SECRET_KEY")
 app.config['SESSION_TYPE'] = 'filesystem'
-app.config['VERSION'] = '0.215.018'
+app.config['VERSION'] = '0.215.040'
 
 Session(app)
 
@@ -115,13 +115,14 @@ CLIENT_SECRET = os.getenv("MICROSOFT_PROVIDER_AUTHENTICATION_SECRET")
 TENANT_ID = os.getenv("TENANT_ID")
 SCOPE = ["User.Read", "User.ReadBasic.All", "People.Read.All", "Group.Read.All"] # Adjust scope according to your needs
 MICROSOFT_PROVIDER_AUTHENTICATION_SECRET = os.getenv("MICROSOFT_PROVIDER_AUTHENTICATION_SECRET")    
+
+OIDC_METADATA_URL = f"https://login.microsoftonline.com/{TENANT_ID}/v2.0/.well-known/openid-configuration"
 AZURE_ENVIRONMENT = os.getenv("AZURE_ENVIRONMENT", "public") # public, usgovernment, custom
 
 if AZURE_ENVIRONMENT == "custom":
     AUTHORITY = f"{CUSTOM_IDENTITY_URL_VALUE}/{TENANT_ID}"
 else:
     AUTHORITY = f"https://login.microsoftonline.us/{TENANT_ID}"
-
 
 WORD_CHUNK_SIZE = 400
 
@@ -261,6 +262,24 @@ cosmos_file_processing_container = cosmos_database.create_container_if_not_exist
     partition_key=PartitionKey(path="/document_id")
 )
 
+cosmos_file_processing_container_name = "group_messages"
+cosmos_file_processing_container = cosmos_database.create_container_if_not_exists(
+    id=cosmos_file_processing_container_name,
+    partition_key=PartitionKey(path="/conversation_id")
+)
+
+cosmos_file_processing_container_name = "group_conversations"
+cosmos_file_processing_container = cosmos_database.create_container_if_not_exists(
+    id=cosmos_file_processing_container_name,
+    partition_key=PartitionKey(path="/id")
+)
+
+cosmos_agent_facts_container_name = "agent_facts"
+cosmos_agent_facts_container = cosmos_database.create_container_if_not_exists(
+    id=cosmos_agent_facts_container_name,
+    partition_key=PartitionKey(path="/scope_id")
+)
+
 def ensure_custom_logo_file_exists(app, settings):
     """
     If custom_logo_base64 is present in settings, ensure static/images/custom_logo.png
@@ -300,6 +319,40 @@ def ensure_custom_logo_file_exists(app, settings):
         print(f"Failed to write/overwrite {logo_filename}: {ex}")
     except Exception as ex: # Catch any other unexpected errors
          print(f"Unexpected error during logo file write for {logo_filename}: {ex}")
+
+def ensure_custom_favicon_file_exists(app, settings):
+    """
+    If custom_favicon_base64 is present in settings, ensure static/images/favicon.ico
+    exists and reflects the current base64 data. Overwrites if necessary.
+    If base64 is empty/missing, uses the default favicon.
+    """
+    custom_favicon_b64 = settings.get('custom_favicon_base64', '')
+    # Ensure the filename is consistent
+    favicon_filename = 'favicon.ico'
+    favicon_path = os.path.join(app.root_path, 'static', 'images', favicon_filename)
+    images_dir = os.path.dirname(favicon_path)
+
+    # Ensure the directory exists
+    os.makedirs(images_dir, exist_ok=True)
+
+    if not custom_favicon_b64:
+        # No custom favicon in DB; no need to remove the static file as we want to keep the default
+        return
+
+    # Custom favicon exists in settings, write/overwrite the file
+    try:
+        # Decode the current base64 string
+        decoded = base64.b64decode(custom_favicon_b64)
+
+        # Write the decoded data to the file, overwriting if it exists
+        with open(favicon_path, 'wb') as f:
+            f.write(decoded)
+        print(f"Ensured {favicon_filename} exists and matches current settings.")
+
+    except (base64.binascii.Error, TypeError, OSError) as ex: # Catch specific errors
+        print(f"Failed to write/overwrite {favicon_filename}: {ex}")
+    except Exception as ex: # Catch any other unexpected errors
+         print(f"Unexpected error during favicon file write for {favicon_filename}: {ex}")
 
 def initialize_clients(settings):
     """

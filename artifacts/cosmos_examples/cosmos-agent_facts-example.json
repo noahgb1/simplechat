@@ -1,0 +1,10 @@
+{
+  "id": "<uuid>",
+  "agent_id": "<agent_id>",
+  "scope_type": "user or group",
+  "scope_id": "<user_id or group_id>",
+  "conversation_id": "<conversation_id>",
+  "value": "<fact_value>",
+  "created_at": "<timestamp>",
+  "updated_at": "<timestamp>"
+}
