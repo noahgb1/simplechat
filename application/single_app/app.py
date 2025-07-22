@@ -327,7 +327,7 @@ register_route_backend_public_documents(app)
 register_route_backend_public_prompts(app)
 
 # ------------------- Extenral Health Routes ----------
-#register_route_external_health(app)
+register_route_external_health(app)
 
 # ------------------- Extenral Groups Routes ----------
 #register_route_external_groups(app)
