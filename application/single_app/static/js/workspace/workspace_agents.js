@@ -1,7 +1,7 @@
 // workspace_agents.js
 // Handles user agent CRUD in the workspace UI
 
-import { shouldEnableCustomConnection, toggleCustomConnectionUI, toggleAdvancedUI, populateGlobalModelDropdown, getAvailableModels, shouldExpandAdvanced, fetchAndGetAvailableModels } from '../agents_common.js';
+import { shouldEnableCustomConnection, toggleCustomConnectionUI, toggleAdvancedUI, populateGlobalModelDropdown, getAvailableModels, shouldExpandAdvanced, fetchAndGetAvailableModels, populatePluginMultiSelect, getSelectedPlugins, setSelectedPlugins, setupApimToggle } from '../agents_common.js';
 
 // DOM elements
 const agentSelect = document.getElementById('active-agent-select'); // Renamed for clarity
@@ -94,6 +94,16 @@ function renderAgentsTable(agents) {
       }
       renderAgentSelectDropdown(agents);
       attachAgentTableEvents(agents);
+    // Add permanent div below the custom connection toggle for disabled message
+    let customConnMsgDiv = document.getElementById('custom-connection-disabled-msg');
+    if (!customConnMsgDiv && customConnectionToggle) {
+      customConnMsgDiv = document.createElement('div');
+      customConnMsgDiv.id = 'custom-connection-disabled-msg';
+      customConnMsgDiv.className = 'alert alert-warning mt-2 py-1 px-2';
+      customConnMsgDiv.style.display = 'none';
+      // Insert after the toggle
+      customConnectionToggle.parentElement.parentElement.insertAdjacentElement('afterend', customConnMsgDiv);
+    }
     });
   }
 }
@@ -183,7 +193,8 @@ function attachAgentTableEvents(agents, selectedAgentName) {
   }
 }
 
-function openAgentModal(agent = null, selectedAgentName = null) {
+
+async function openAgentModal(agent = null, selectedAgentName = null) {
   // Get modal and fields
   const modalEl = document.getElementById('agentModal');
   if (!modalEl) return alert('Agent modal not found.');
@@ -204,14 +215,12 @@ function openAgentModal(agent = null, selectedAgentName = null) {
   const apimDeploymentInput = document.getElementById('agent-apim-deployment');
   const apimApiVersionInput = document.getElementById('agent-apim-api-version');
   const instructionsInput = document.getElementById('agent-instructions');
-  const actionsInput = document.getElementById('agent-actions-to-load');
   const settingsInput = document.getElementById('agent-additional-settings');
-  // Removed defaultCheckbox
+  const pluginSelect = document.getElementById('agent-plugins-to-load');
   const errorDiv = document.getElementById('agent-modal-error');
   const saveBtn = document.getElementById('agent-modal-save-btn');
-  // Add Set as Selected Agent button (only in modal, only for edit)
   let setSelectedBtn = document.getElementById('agent-modal-set-selected-btn');
-  // Always reference the button, do not create it dynamically (it's in the HTML)
+  // Set as Selected Agent button logic
   if (agent) {
     setSelectedBtn.classList.remove('d-none');
     setSelectedBtn.style.display = '';
@@ -249,25 +258,99 @@ function openAgentModal(agent = null, selectedAgentName = null) {
   const globalModelSelect = document.getElementById('agent-global-model-select');
   const advancedToggle = document.getElementById('agent-advanced-toggle');
   const advancedSection = document.getElementById('agent-advanced-section');
-
-  // Helper for modal elements
   const modalElements = {
     customFields: customConnectionFields,
     globalModelGroup: globalModelGroup,
     advancedSection: advancedSection
   };
 
+
   // --- Custom Connection Toggle Logic ---
   let customEnabled = shouldEnableCustomConnection(agent);
   customConnectionToggle.checked = customEnabled;
+  // Add permanent div below the custom connection toggle for disabled message
+  let customConnMsgDiv = document.getElementById('custom-connection-disabled-msg');
+  const customConnToggleContainer = document.getElementById('agent-custom-connection-toggle');
+  if (!customConnMsgDiv && customConnToggleContainer) {
+    customConnMsgDiv = document.createElement('div');
+    customConnMsgDiv.id = 'custom-connection-disabled-msg';
+    customConnMsgDiv.className = 'alert alert-warning mt-2 py-1 px-2';
+    customConnMsgDiv.style.display = 'none';
+    // Insert after the toggle container
+    customConnToggleContainer.insertAdjacentElement('afterend', customConnMsgDiv);
+  }
+  // Fetch allow_user_custom_agent_endpoints and disable toggle/message if needed
+  if (customConnectionToggle) {
+    try {
+      const settingsResp = await fetch('/api/user/agent/settings');
+      if (settingsResp.ok) {
+        const settings = await settingsResp.json();
+        console.log('[DEBUG] /api/user/agent/settings response:', settings);
+        if (settings && settings.allow_user_custom_agent_endpoints === false) {
+          customConnectionToggle.disabled = true;
+          if (customConnMsgDiv) {
+            customConnMsgDiv.textContent = 'Custom connection disabled by admins.';
+            customConnMsgDiv.style.display = '';
+          }
+          console.log('[DEBUG] Custom Connection toggle disabled due to allow_user_custom_agent_endpoints = false');
+        } else {
+          customConnectionToggle.disabled = false;
+          if (customConnMsgDiv) {
+            customConnMsgDiv.style.display = 'none';
+          }
+          console.log('[DEBUG] Custom Connection toggle enabled (allow_user_custom_agent_endpoints is true or missing)');
+        }
+        console.log('[DEBUG] Custom Connection toggle .disabled state:', customConnectionToggle.disabled);
+      }
+    } catch (e) {
+      console.warn('[DEBUG] Could not fetch allow_user_custom_agent_endpoints for custom connection toggle:', e);
+    }
+  }
   toggleCustomConnectionUI(customEnabled, modalElements);
   customConnectionToggle.onchange = function () {
     toggleCustomConnectionUI(this.checked, modalElements);
-    // When toggling custom connection, reload models if needed
     if (!this.checked) {
       loadGlobalModels();
     }
   };
+
+  // --- APIM Toggle Logic ---
+  // Debug logging to verify elements and setup
+  console.log('[DEBUG] APIM Toggle:', apimToggle);
+  console.log('[DEBUG] APIM Fields:', apimFields);
+  console.log('[DEBUG] GPT Fields:', gptFields);
+  if (!apimToggle) {
+    console.warn('[DEBUG] apimToggle not found!');
+  }
+  if (!apimFields) {
+    console.warn('[DEBUG] apimFields not found!');
+  }
+  if (!gptFields) {
+    console.warn('[DEBUG] gptFields not found!');
+  }
+  // Fetch allow_user_agents and disable toggle if needed
+  if (apimToggle) {
+    try {
+      const settingsResp = await fetch('/api/user/agent/settings');
+      if (settingsResp.ok) {
+        const settings = await settingsResp.json();
+        if (settings && settings.allow_user_agents === false) {
+          apimToggle.disabled = true;
+          console.log('[DEBUG] APIM toggle disabled due to allow_user_agents = false');
+        } else {
+          apimToggle.disabled = false;
+        }
+      }
+    } catch (e) {
+      console.warn('[DEBUG] Could not fetch allow_user_agents:', e);
+    }
+  }
+  if (apimToggle && apimFields && gptFields) {
+    setupApimToggle(apimToggle, apimFields, gptFields, loadGlobalModels);
+    console.log('[DEBUG] setupApimToggle called successfully.');
+  } else {
+    console.warn('[DEBUG] setupApimToggle NOT called due to missing elements.');
+  }
 
   // --- Advanced Toggle Logic ---
   let expandAdvanced = shouldExpandAdvanced(agent);
@@ -279,7 +362,7 @@ function openAgentModal(agent = null, selectedAgentName = null) {
 
   // --- Global Model Dropdown Logic ---
   async function loadGlobalModels() {
-    const endpoint = '/api/user/agent/settings'; // Use user endpoint for workspace
+    const endpoint = '/api/user/agent/settings';
     const { models, selectedModel, apimEnabled } = await fetchAndGetAvailableModels(endpoint, agent);
     populateGlobalModelDropdown(globalModelSelect, models, selectedModel);
     globalModelSelect.onchange = function () {
@@ -301,16 +384,27 @@ function openAgentModal(agent = null, selectedAgentName = null) {
       }
     };
   }
-
-  // Listen for APIM toggle changes to reload models
-  if (apimToggle) {
-    apimToggle.onchange = function () {
-      loadGlobalModels();
-    };
-  }
-
+  // apimToggle.onchange is now managed by setupApimToggle; do not overwrite it here.
   if (!customEnabled) {
     loadGlobalModels();
+  }
+
+  // --- Plugin Multi-Select Logic ---
+  // Fetch available plugins and populate the multi-select (user/workspace context)
+  let availablePlugins = [];
+  try {
+    const resp = await fetch('/api/user/plugins');
+    if (resp.ok) {
+      availablePlugins = await resp.json();
+    }
+  } catch (e) {
+    availablePlugins = [];
+  }
+  populatePluginMultiSelect(pluginSelect, availablePlugins);
+  if (agent && Array.isArray(agent.plugins_to_load)) {
+    setSelectedPlugins(pluginSelect, agent.plugins_to_load);
+  } else {
+    setSelectedPlugins(pluginSelect, []);
   }
 
   // Populate fields
@@ -328,7 +422,6 @@ function openAgentModal(agent = null, selectedAgentName = null) {
     apimDeploymentInput.value = agent.azure_agent_apim_gpt_deployment || '';
     apimApiVersionInput.value = agent.azure_agent_apim_gpt_api_version || '';
     instructionsInput.value = agent.instructions || '';
-    actionsInput.value = agent.actions_to_load ? JSON.stringify(agent.actions_to_load, null, 2) : '[]';
     settingsInput.value = agent.other_settings ? JSON.stringify(agent.other_settings, null, 2) : '{}';
   } else {
     nameInput.value = '';
@@ -344,22 +437,13 @@ function openAgentModal(agent = null, selectedAgentName = null) {
     apimDeploymentInput.value = '';
     apimApiVersionInput.value = '';
     instructionsInput.value = '';
-    actionsInput.value = '[]';
     settingsInput.value = '{}';
+    setSelectedPlugins(pluginSelect, []);
   }
+
   // Save handler
   saveBtn.onclick = async () => {
-    // Parse JSON fields
-    let actionsArr = [];
     let settingsObj = {};
-    try {
-      actionsArr = actionsInput.value.trim() ? JSON.parse(actionsInput.value) : [];
-      if (!Array.isArray(actionsArr)) throw new Error('Actions must be a JSON array');
-    } catch (e) {
-      errorDiv.textContent = 'Actions to Load: ' + e.message;
-      errorDiv.classList.remove('d-none');
-      return;
-    }
     try {
       settingsObj = settingsInput.value.trim() ? JSON.parse(settingsInput.value) : {};
       if (typeof settingsObj !== 'object' || Array.isArray(settingsObj)) throw new Error('Additional Settings must be a JSON object');
@@ -384,9 +468,9 @@ function openAgentModal(agent = null, selectedAgentName = null) {
       azure_agent_apim_gpt_api_version: apimApiVersionInput.value.trim(),
       enable_agent_gpt_apim: apimToggle.checked,
       instructions: instructionsInput.value.trim(),
-      actions_to_load: actionsArr,
+      actions_to_load: [], // deprecated, always empty for new UI
       other_settings: settingsObj,
-      plugins_to_load: [],
+      plugins_to_load: getSelectedPlugins(pluginSelect),
       is_global: false
     };
     // Validate with JSON schema (Ajv)

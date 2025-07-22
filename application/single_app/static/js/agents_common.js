@@ -1,4 +1,76 @@
 /**
+ * Shared logic to show/hide APIM and GPT fields based on APIM toggle state.
+ * @param {HTMLInputElement} apimToggle - The APIM toggle checkbox element
+ * @param {HTMLElement} apimFields - The APIM fields container
+ * @param {HTMLElement} gptFields - The GPT fields container
+ */
+export function setupApimToggle(apimToggle, apimFields, gptFields, onToggle) {
+	if (!apimToggle || !apimFields || !gptFields) return;
+	function updateApimFieldsVisibility() {
+		console.log('[DEBUG] updateApimFieldsVisibility fired. apimToggle.checked:', apimToggle.checked);
+		if (apimToggle.checked) {
+			apimFields.style.display = 'block';
+			gptFields.style.display = 'none';
+			console.log('[DEBUG] Showing APIM fields, hiding GPT fields.');
+		} else {
+			apimFields.style.display = 'none';
+			gptFields.style.display = 'block';
+			console.log('[DEBUG] Hiding APIM fields, showing GPT fields.');
+		}
+		if (typeof onToggle === 'function') {
+			onToggle();
+		}
+	}
+	apimToggle.onchange = updateApimFieldsVisibility;
+	updateApimFieldsVisibility();
+}
+/**
+ * Populate a multi-select element with available plugins
+ * @param {HTMLElement} selectEl - The select element
+ * @param {Array} plugins - Array of plugin objects (must have .name)
+ */
+export function populatePluginMultiSelect(selectEl, plugins) {
+	if (!selectEl) return;
+	selectEl.innerHTML = '';
+	if (!plugins || !plugins.length) {
+		let opt = document.createElement('option');
+		opt.value = '';
+		opt.textContent = 'No plugins available';
+		selectEl.appendChild(opt);
+		selectEl.disabled = true;
+		return;
+	}
+	plugins.forEach(plugin => {
+		let opt = document.createElement('option');
+		opt.value = plugin.name;
+		opt.textContent = plugin.display_name || plugin.name;
+		selectEl.appendChild(opt);
+	});
+	selectEl.disabled = false;
+}
+
+/**
+ * Get selected plugin names from a multi-select
+ * @param {HTMLElement} selectEl
+ * @returns {Array<string>} Array of selected plugin names
+ */
+export function getSelectedPlugins(selectEl) {
+	if (!selectEl) return [];
+	return Array.from(selectEl.selectedOptions).map(opt => opt.value).filter(Boolean);
+}
+
+/**
+ * Pre-select plugins in a multi-select
+ * @param {HTMLElement} selectEl
+ * @param {Array<string>} pluginNames
+ */
+export function setSelectedPlugins(selectEl, pluginNames) {
+	if (!selectEl || !Array.isArray(pluginNames)) return;
+	Array.from(selectEl.options).forEach(opt => {
+		opt.selected = pluginNames.includes(opt.value);
+	});
+}
+/**
  * Set a user setting (e.g., enable_agents)
  * @param {string} key - Setting key
  * @param {any} value - Setting value
@@ -34,8 +106,10 @@ export function shouldExpandAdvanced(agent) {
 	if (!agent) return false;
 	let actions = agent.actions_to_load;
 	let settings = agent.other_settings;
+	let plugins = agent.plugins_to_load;
 	let hasActions = false;
 	let hasSettings = false;
+	let hasPlugins = false;
 	// Check actions_to_load
 	if (Array.isArray(actions)) {
 		hasActions = actions.length > 0;
@@ -58,7 +132,11 @@ export function shouldExpandAdvanced(agent) {
 	} else if (settings && settings !== null && settings !== undefined) {
 		hasSettings = true;
 	}
-	return hasActions || hasSettings;
+	// Check plugins_to_load
+	if (Array.isArray(plugins)) {
+		hasPlugins = plugins.length > 0;
+	}
+	return hasActions || hasSettings || hasPlugins;
 }
 
 /**
