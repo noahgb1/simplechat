@@ -11,4 +11,4 @@ def register_route_external_health(app):
     def health_check():
         now = datetime.now()
         time_string = now.strftime("%Y-%m-%d %H:%M:%S")
-        return time_string, 200
+        return jsonify({"status": "ok", "time": time_string}), 200
