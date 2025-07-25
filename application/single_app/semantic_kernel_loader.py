@@ -87,8 +87,8 @@ def first_if_comma(val):
 def resolve_agent_config(agent, settings):
     gpt_model_obj = settings.get('gpt_model', {})
     selected_model = gpt_model_obj.get('selected', [{}])[0] if gpt_model_obj.get('selected') else {}
-    # User APIM enabled if agent has azure_apim_gpt_enabled True (or 1, or 'true')
-    user_apim_enabled = agent.get("azure_apim_gpt_enabled") in [True, 1, "true", "True"]
+    # User APIM enabled if agent has enable_agent_gpt_apim True (or 1, or 'true')
+    user_apim_enabled = agent.get("enable_agent_gpt_apim") in [True, 1, "true", "True"]
     global_apim_enabled = settings.get("enable_gpt_apim", False)
     per_user_enabled = settings.get('per_user_semantic_kernel', False)
 
@@ -195,7 +195,9 @@ def resolve_agent_config(agent, settings):
         "display_name": agent.get("display_name", agent.get("name")),
         "description": agent.get("description", ""),
         "id": agent.get("id", ""),
-        "default_agent": agent.get("default_agent", False) #[Deprecated, use 'selected_agent' or 'global_selected_agent' in agent config]
+        "default_agent": agent.get("default_agent", False), #[Deprecated, use 'selected_agent' or 'global_selected_agent' in agent config]
+        "is_global": agent.get("is_global", False),  # Ensure we have this field
+        "enable_agent_gpt_apim": agent.get("enable_agent_gpt_apim", False)  # Use this to check if APIM is enabled for the agent
     }
 
 def load_time_plugin(kernel: Kernel):
@@ -342,7 +344,7 @@ def load_single_agent_for_kernel(kernel, agent_cfg, settings, context_obj, redis
                 "aoai_key": f"{agent_config['key'][:3]}..." if agent_config["key"] else None,
                 "aoai_deployment": agent_config["deployment"],
                 "agent_name": agent_config["name"],
-                "apim_enabled": agent_config["azure_apim_gpt_enabled"]
+                "apim_enabled": agent_config["enable_agent_gpt_apim"]
             },
             level=logging.INFO
         )
