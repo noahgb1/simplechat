@@ -148,7 +148,8 @@ async function openAgentModal(agent = null) {
         availablePlugins = [];
     }
     agentsCommon.populatePluginMultiSelect(pluginSelect, availablePlugins);
-    agentsCommon.setSelectedPlugins(pluginSelect, agent?.plugins_to_load || []);
+    agentsCommon.setSelectedPlugins(pluginSelect, agent?.actions_to_load || []);
+
 
     // Setup toggles using shared helpers
     agentsCommon.setupApimToggle(
@@ -212,7 +213,7 @@ function showAgentModalError(msg) {
         errDiv.textContent = msg;
         errDiv.style.display = 'block';
     } else {
-        alert(msg);
+        showToast(msg, 'danger');
     }
 }
 
@@ -320,8 +321,8 @@ function handleAgentTableClick(e) {
             availablePlugins = [];
         }
         agentsCommon.populatePluginMultiSelect(pluginSelect, availablePlugins);
-        if (agent && Array.isArray(agent.plugins_to_load)) {
-            agentsCommon.setSelectedPlugins(pluginSelect, agent.plugins_to_load);
+        if (agent && Array.isArray(agent.actions_to_load)) {
+            agentsCommon.setSelectedPlugins(pluginSelect, agent.actions_to_load);
         } else {
             agentsCommon.setSelectedPlugins(pluginSelect, []);
         }
@@ -339,27 +340,27 @@ function handleAgentTableClick(e) {
             advancedSection: advancedSection
         };
         // Custom Connection Toggle
-        let customEnabled = shouldEnableCustomConnection(agent);
+        let customEnabled = agentsCommon.shouldEnableCustomConnection(agent);
         customConnectionToggle.checked = customEnabled;
-        toggleCustomConnectionUI(customEnabled, modalElements);
+        agentsCommon.toggleCustomConnectionUI(customEnabled, modalElements);
         customConnectionToggle.onchange = function () {
-            toggleCustomConnectionUI(this.checked, modalElements);
+            agentsCommon.toggleCustomConnectionUI(this.checked, modalElements);
             if (!this.checked) {
                 loadGlobalModels();
             }
         };
         // Advanced Toggle
-        let expandAdvanced = shouldExpandAdvanced(agent);
+        let expandAdvanced = agentsCommon.shouldExpandAdvanced(agent);
         advancedToggle.checked = expandAdvanced;
-        toggleAdvancedUI(expandAdvanced, modalElements);
+        agentsCommon.toggleAdvancedUI(expandAdvanced, modalElements);
         advancedToggle.onchange = function () {
-            toggleAdvancedUI(this.checked, modalElements);
+            agentsCommon.toggleAdvancedUI(this.checked, modalElements);
         };
         // Global Model Dropdown
         async function loadGlobalModels() {
             const endpoint = '/api/admin/agent/settings';
-            const { models, selectedModel, apimEnabled } = await fetchAndGetAvailableModels(endpoint, agent);
-            populateGlobalModelDropdown(globalModelSelect, models, selectedModel);
+            const { models, selectedModel, apimEnabled } = await agentsCommon.fetchAndGetAvailableModels(endpoint, agent);
+            agentsCommon.populateGlobalModelDropdown(globalModelSelect, models, selectedModel);
             globalModelSelect.onchange = function () {
                 const selected = models.find(m => m.deployment === this.value || m.name === this.value || m.id === this.value);
                 if (selected) {
