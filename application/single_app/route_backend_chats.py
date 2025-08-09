@@ -19,6 +19,8 @@ from functions_settings import *
 from functions_agents import get_agent_id_by_name
 from functions_chat import *
 from flask import current_app
+from functions_settings import get_settings
+from typing import List, Dict
 
 
 def get_kernel():
@@ -1059,6 +1061,51 @@ def register_route_backend_chats(app):
                     'func': invoke_selected_agent,
                     'on_success': agent_success,
                     'on_error': agent_error
+                })
+
+            # Optional Azure Agent Service fallback/integration
+            settings_local = get_settings()
+            if settings_local.get('enable_azure_agent_service', False):
+                def invoke_azure_agent():
+                    # Build messages in the expected shape
+                    messages_payload: List[Dict[str, str]] = [
+                        {"role": m["role"], "content": m["content"]}
+                        for m in conversation_history_for_api
+                    ]
+                    from functions_azure_agent_service import invoke_azure_agent_service
+
+                    endpoint = None
+                    project = None
+                    agent_name_or_id = None
+                    if not settings_local.get('azure_agent_service_use_env', True):
+                        endpoint = settings_local.get('azure_ai_foundry_endpoint') or None
+                        project = settings_local.get('azure_ai_foundry_project') or None
+                        agent_name_or_id = settings_local.get('azure_ai_foundry_agent_id') or None
+
+                    assistant_text, raw_resp = invoke_azure_agent_service(
+                        messages_payload,
+                        project_name=project,
+                        agent_name_or_id=agent_name_or_id,
+                        endpoint=endpoint,
+                    )
+                    return assistant_text
+
+                def azure_agent_success(result):
+                    # result is the assistant text
+                    return (str(result), "azure-agent-service", "azure-agent-service", None)
+
+                def azure_agent_error(e):
+                    log_event(
+                        f"Azure Agent Service invocation failed: {e}",
+                        level=logging.WARNING,
+                        exceptionTraceback=True,
+                    )
+
+                fallback_steps.append({
+                    'name': 'azure-agent-service',
+                    'func': invoke_azure_agent,
+                    'on_success': azure_agent_success,
+                    'on_error': azure_agent_error
                 })
 
             if kernel:

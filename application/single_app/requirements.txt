@@ -27,6 +27,7 @@ pandas==2.2.3
 markdown2==2.5.3
 azure-mgmt-cognitiveservices==13.6.0
 azure-identity==1.23.0
+azure-ai-projects>=1.0.0b7
 azure-ai-contentsafety==1.0.0
 azure-storage-blob==12.24.1
 azure-storage-queue==12.12.0
