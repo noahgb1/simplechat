@@ -128,9 +128,12 @@ def get_settings():
         'hide_app_title': False,
         'custom_logo_base64': '',
         'logo_version': 1,
+        'custom_logo_dark_base64': '',
+        'logo_dark_version': 1,
         'custom_favicon_base64': '',
         'favicon_version': 1,
         'enable_dark_mode_default': False,
+        'enable_left_nav_default': True,
 
         # GPT Settings
         'enable_gpt_apim': False,
@@ -654,5 +657,5 @@ def enabled_required(setting_key):
     return decorator
 
 def sanitize_settings_for_user(full_settings: dict) -> dict:
-    # Exclude any key containing the substring "key"
-    return {k: v for k, v in full_settings.items() if "key" not in k}
+    # Exclude any key containing the substring "key" or specific sensitive URLs
+    return {k: v for k, v in full_settings.items() if "key" not in k and k != "office_docs_storage_account_url"}

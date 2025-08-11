@@ -51,6 +51,7 @@ def register_route_backend_chats(app):
         document_scope = data.get('doc_scope')
         active_group_id = data.get('active_group_id')
         frontend_gpt_model = data.get('model_deployment')
+        top_n_results = data.get('top_n')  # Extract top_n parameter from request
         chat_type = data.get('chat_type', 'user')  # 'user' or 'group', default to 'user'
         
         # Validate chat_type
@@ -375,17 +376,44 @@ def register_route_backend_chats(app):
 
             # Perform the search
             try:
-                # For search, pass group context only if chat_type is 'group'
+                # Prepare search arguments
+                # Set default and maximum values for top_n
+                default_top_n = 12
+                max_top_n = 500  # Reasonable cap to prevent excessive resource usage
+                
+                # Process top_n_results if provided
+                if top_n_results is not None:
+                    try:
+                        top_n = int(top_n_results)
+                        # Ensure top_n is within reasonable bounds
+                        if top_n < 1:
+                            top_n = default_top_n
+                        elif top_n > max_top_n:
+                            top_n = max_top_n
+                    except (ValueError, TypeError):
+                        # If conversion fails, use default
+                        top_n = default_top_n
+                else:
+                    top_n = default_top_n
+                
                 search_args = {
                     "query": search_query,
                     "user_id": user_id,
-                    "top_n": 12,
+                    "top_n": top_n,
                     "doc_scope": document_scope,
                 }
-                if chat_type == 'group' and active_group_id:
+                
+                # Add active_group_id when document scope is 'group' or chat_type is 'group'
+                if (document_scope == 'group' or chat_type == 'group') and active_group_id:
                     search_args["active_group_id"] = active_group_id
+  
+                     
                 if selected_document_id:
                     search_args["document_id"] = selected_document_id
+                
+                # Log if a non-default top_n value is being used
+                if top_n != default_top_n:
+                    print(f"Using custom top_n value: {top_n} (requested: {top_n_results})")
                 
                 # Public scope now automatically searches all visible public workspaces
                 search_results = hybrid_search(**search_args) # Assuming hybrid_search handles None document_id
