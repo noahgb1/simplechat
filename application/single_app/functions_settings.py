@@ -128,9 +128,12 @@ def get_settings():
         'hide_app_title': False,
         'custom_logo_base64': '',
         'logo_version': 1,
+        'custom_logo_dark_base64': '',
+        'logo_dark_version': 1,
         'custom_favicon_base64': '',
         'favicon_version': 1,
         'enable_dark_mode_default': False,
+        'enable_left_nav_default': True,
 
         # GPT Settings
         'enable_gpt_apim': False,
@@ -216,6 +219,15 @@ def get_settings():
             {"label": "None", "color": "#808080"},
             {"label": "N/A", "color": "#808080"},
             {"label": "Pending", "color": "#0000FF"}
+        ],
+
+        # External Links
+        'enable_external_links': False,
+        'external_links_menu_name': 'External Links',
+        'external_links_force_menu': False,
+        'external_links': [
+            {"label": "Acceptable Use Policy", "url": "https://example.com/policy"},
+            {"label": "Prompt Ideas", "url": "https://example.com/prompts"}
         ],
 
         # Enhanced Citations
@@ -499,6 +511,7 @@ def get_user_settings(user_id):
         # Ensure the settings key exists for consistency downstream
         if 'settings' not in doc:
             doc['settings'] = {}
+        
         # Try to update email/display_name if missing and available in session
         user = session.get("user", {})
         email = user.get("preferred_username") or user.get("email")
@@ -510,6 +523,19 @@ def get_user_settings(user_id):
         if display_name and doc.get("display_name") != display_name:
             doc["display_name"] = display_name
             updated = True
+            
+        # Check if profile image needs to be fetched
+        if 'profileImage' not in doc['settings']:
+            from functions_authentication import get_user_profile_image
+            try:
+                profile_image = get_user_profile_image()
+                doc['settings']['profileImage'] = profile_image
+                updated = True
+            except Exception as e:
+                print(f"Warning: Could not fetch profile image for user {user_id}: {e}")
+                doc['settings']['profileImage'] = None
+                updated = True
+        
         if updated:
             cosmos_user_settings_container.upsert_item(body=doc)
         return doc
@@ -523,6 +549,16 @@ def get_user_settings(user_id):
             doc["email"] = email
         if display_name:
             doc["display_name"] = display_name
+            
+        # Try to fetch profile image for new user
+        from functions_authentication import get_user_profile_image
+        try:
+            profile_image = get_user_profile_image()
+            doc['settings']['profileImage'] = profile_image
+        except Exception as e:
+            print(f"Warning: Could not fetch profile image for new user {user_id}: {e}")
+            doc['settings']['profileImage'] = None
+            
         cosmos_user_settings_container.upsert_item(body=doc)
         return doc
     except Exception as e:
@@ -663,5 +699,5 @@ def enabled_required(setting_key):
     return decorator
 
 def sanitize_settings_for_user(full_settings: dict) -> dict:
-    # Exclude any key containing the substring "key"
-    return {k: v for k, v in full_settings.items() if "key" not in k}
+    # Exclude any key containing the substring "key" or specific sensitive URLs
+    return {k: v for k, v in full_settings.items() if "key" not in k and k != "office_docs_storage_account_url"}

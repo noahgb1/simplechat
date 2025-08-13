@@ -18,6 +18,7 @@ from functions_bing_search import *
 from functions_settings import *
 from functions_agents import get_agent_id_by_name
 from functions_chat import *
+from functions_conversation_metadata import collect_conversation_metadata, update_conversation_with_metadata
 from flask import current_app
 from functions_settings import get_settings
 from typing import List, Dict
@@ -53,6 +54,7 @@ def register_route_backend_chats(app):
         document_scope = data.get('doc_scope')
         active_group_id = data.get('active_group_id')
         frontend_gpt_model = data.get('model_deployment')
+        top_n_results = data.get('top_n')  # Extract top_n parameter from request
         chat_type = data.get('chat_type', 'user')  # 'user' or 'group', default to 'user'
         
         # Validate chat_type
@@ -181,7 +183,10 @@ def register_route_backend_chats(app):
                 'id': conversation_id,
                 'user_id': user_id,
                 'last_updated': datetime.utcnow().isoformat(),
-                'title': 'New Conversation'
+                'title': 'New Conversation',
+                'context': [],
+                'tags': [],
+                'strict': False
             }
             cosmos_conversations_container.upsert_item(conversation_item)
         else:
@@ -194,7 +199,10 @@ def register_route_backend_chats(app):
                     'id': conversation_id, # Keep the provided ID if needed for linking
                     'user_id': user_id,
                     'last_updated': datetime.utcnow().isoformat(),
-                    'title': 'New Conversation' # Or maybe fetch title differently?
+                    'title': 'New Conversation', # Or maybe fetch title differently?
+                    'context': [],
+                    'tags': [],
+                    'strict': False
                 }
                 # Optionally log that a conversation was expected but not found
                 print(f"Warning: Conversation ID {conversation_id} not found, creating new.")
@@ -377,17 +385,44 @@ def register_route_backend_chats(app):
 
             # Perform the search
             try:
-                # For search, pass group context only if chat_type is 'group'
+                # Prepare search arguments
+                # Set default and maximum values for top_n
+                default_top_n = 12
+                max_top_n = 500  # Reasonable cap to prevent excessive resource usage
+                
+                # Process top_n_results if provided
+                if top_n_results is not None:
+                    try:
+                        top_n = int(top_n_results)
+                        # Ensure top_n is within reasonable bounds
+                        if top_n < 1:
+                            top_n = default_top_n
+                        elif top_n > max_top_n:
+                            top_n = max_top_n
+                    except (ValueError, TypeError):
+                        # If conversion fails, use default
+                        top_n = default_top_n
+                else:
+                    top_n = default_top_n
+                
                 search_args = {
                     "query": search_query,
                     "user_id": user_id,
-                    "top_n": 12,
+                    "top_n": top_n,
                     "doc_scope": document_scope,
                 }
-                if chat_type == 'group' and active_group_id:
+                
+                # Add active_group_id when document scope is 'group' or chat_type is 'group'
+                if (document_scope == 'group' or chat_type == 'group') and active_group_id:
                     search_args["active_group_id"] = active_group_id
+  
+                     
                 if selected_document_id:
                     search_args["document_id"] = selected_document_id
+                
+                # Log if a non-default top_n value is being used
+                if top_n != default_top_n:
+                    print(f"Using custom top_n value: {top_n} (requested: {top_n_results})")
                 
                 # Public scope now automatically searches all visible public workspaces
                 search_results = hybrid_search(**search_args) # Assuming hybrid_search handles None document_id
@@ -1262,6 +1297,36 @@ def register_route_backend_chats(app):
 
         # Update conversation's last_updated timestamp one last time
         conversation_item['last_updated'] = datetime.utcnow().isoformat()
+        
+        # Collect comprehensive conversation metadata
+        try:
+            # Determine selected agent name if one was used
+            selected_agent_name = None
+            if selected_agent:
+                selected_agent_name = getattr(selected_agent, 'name', None)
+            
+            # Collect metadata for this conversation interaction
+            conversation_item = collect_conversation_metadata(
+                user_message=user_message,
+                conversation_id=conversation_id,
+                user_id=user_id,
+                active_group_id=active_group_id,
+                document_scope=document_scope,
+                selected_document_id=selected_document_id,
+                model_deployment=final_model_used,
+                hybrid_search_enabled=hybrid_search_enabled,
+                bing_search_enabled=bing_search_enabled,
+                image_gen_enabled=image_gen_enabled,
+                selected_documents=combined_documents if 'combined_documents' in locals() else None,
+                selected_agent=selected_agent_name,
+                search_results=search_results if 'search_results' in locals() else None,
+                web_search_results=bing_results if 'bing_results' in locals() else None,
+                conversation_item=conversation_item
+            )
+        except Exception as e:
+            print(f"Error collecting conversation metadata: {e}")
+            # Continue even if metadata collection fails
+        
         # Add any other final updates to conversation_item if needed (like classifications if not done earlier)
         cosmos_conversations_container.upsert_item(conversation_item)
 
