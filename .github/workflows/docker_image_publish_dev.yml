@@ -37,6 +37,6 @@ jobs:
     - name: Build the Docker image
       run:         
         docker build . --file application/single_app/Dockerfile --tag ${{ secrets.ACR_LOGIN_SERVER }}/simple-chat-dev-agent-service-experiment:$(date +'%Y-%m-%d')_$GITHUB_RUN_NUMBER;
-        docker tag ${{ secrets.ACR_LOGIN_SERVER }}/simple-chatdev-agent-service-experiment:$(date +'%Y-%m-%d')_$GITHUB_RUN_NUMBER ${{ secrets.ACR_LOGIN_SERVER }}/simple-chatdev-agent-service-experiment:latest;
+        docker tag ${{ secrets.ACR_LOGIN_SERVER }}/simple-chat-dev-agent-service-experiment:$(date +'%Y-%m-%d')_$GITHUB_RUN_NUMBER ${{ secrets.ACR_LOGIN_SERVER }}/simple-chat-dev-agent-service-experiment:latest;
         docker push ${{ secrets.ACR_LOGIN_SERVER }}/simple-chat-dev-agent-service-experiment:$(date +'%Y-%m-%d')_$GITHUB_RUN_NUMBER;
-        docker push ${{ secrets.ACR_LOGIN_SERVER }}/simple-chatdev-agent-service-experiment:latest;
+        docker push ${{ secrets.ACR_LOGIN_SERVER }}/simple-chat-dev-agent-service-experiment:latest;
