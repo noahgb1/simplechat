@@ -440,5 +440,6 @@ def get_global_agent_settings(include_admin_extras=False):
         "allow_user_custom_agent_endpoints": settings.get("allow_user_custom_agent_endpoints", False),
         "allow_group_agents": settings.get("allow_group_agents", False),
         "allow_group_custom_agent_endpoints": settings.get("allow_group_custom_agent_endpoints", False),
+        "enable_azure_agent_service": settings.get("enable_azure_agent_service", False),
     })
     

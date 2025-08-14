@@ -244,6 +244,15 @@ def get_settings():
         'audio_files_authentication_type': 'key',
         'audio_files_key': '',
 
+    # Azure Agent Service (Azure AI Foundry Agents) - optional integration
+    'enable_azure_agent_service': True,
+    # If true, the integration will read endpoint/project/agent_id from environment variables.
+    # Otherwise, it will use the values below.
+    'azure_agent_service_use_env': True,
+    'azure_ai_foundry_endpoint': '',
+    'azure_ai_foundry_project': '',
+    'azure_ai_foundry_agent_id': '',
+
         # Safety (Content Safety) Settings
         'enable_content_safety': False,
         'require_member_of_safety_violation_admin': False,

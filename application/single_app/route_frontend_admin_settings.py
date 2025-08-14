@@ -588,6 +588,13 @@ def register_route_frontend_admin_settings(app):
                 'classification_banner_enabled': classification_banner_enabled,
                 'classification_banner_text': classification_banner_text,
                 'classification_banner_color': classification_banner_color,
+
+                # Azure Agent Service (Azure AI Foundry Agents)
+                'enable_azure_agent_service': form_data.get('enable_azure_agent_service') == 'on',
+                'azure_agent_service_use_env': form_data.get('azure_agent_service_use_env') == 'on',
+                'azure_ai_foundry_endpoint': form_data.get('azure_ai_foundry_endpoint', '').strip(),
+                'azure_ai_foundry_project': form_data.get('azure_ai_foundry_project', '').strip(),
+                'azure_ai_foundry_agent_id': form_data.get('azure_ai_foundry_agent_id', '').strip(),
             }
             
             logo_file = request.files.get('logo_file')

@@ -34,6 +34,33 @@ def register_route_frontend_authentication(app):
         #auth_url= auth_url.replace('https://', 'http://')  # Ensure HTTPS for security
         return redirect(auth_url)
 
+    #@app.route('/external/chat', methods=['POST'])
+    @app.route('/getASession', methods=['GET']) # This is your redirect URI path GREGUNGER TODO
+    def authorized_getasession():
+
+        if "user" not in session:
+            auth_header = request.headers.get('Authorization')
+            if not auth_header:
+                return jsonify({"message": "Authorization header missing"}), 401
+
+            if not auth_header.startswith("Bearer "):
+                return jsonify({"message": "Invalid Authorization header format"}), 401
+
+            token = auth_header.split(" ")[1]
+            is_valid, data = validate_bearer_token(token) # return true, bearer token
+
+            if not is_valid:
+                return jsonify({"message": data}), 401
+
+            session["user"] = data
+
+            # --- CRITICAL: Save the entire cache (contains tokens) to session ---
+            _save_cache(msal_app.token_cache)
+
+            print(f"User {session['user'].get('name')} logged in successfully.")
+        
+        return jsonify("Session returned as cookie", 200)
+
     @app.route('/getAToken') # This is your redirect URI path
     def authorized():
         # Check for errors passed back from Azure AD

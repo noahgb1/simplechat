@@ -20,6 +20,8 @@ from functions_agents import get_agent_id_by_name
 from functions_chat import *
 from functions_conversation_metadata import collect_conversation_metadata, update_conversation_with_metadata
 from flask import current_app
+from functions_settings import get_settings
+from typing import List, Dict
 
 
 def get_kernel():
@@ -805,11 +807,18 @@ def register_route_backend_chats(app):
                 'name': str, 'func': callable, 'on_success': callable, 'on_error': callable
             Returns: (ai_message, final_model_used, chat_mode, kernel_fallback_notice)
             """
+            print(f"DEBUG: try_fallback_chain called with {len(steps)} steps:")
+            for i, step in enumerate(steps):
+                print(f"DEBUG:   Step {i}: {step.get('name', 'unnamed')}")
+            
             for step in steps:
+                print(f"DEBUG: Attempting fallback step: {step['name']}")
                 try:
                     result = step['func']()
+                    print(f"DEBUG: Fallback step {step['name']} succeeded")
                     return step['on_success'](result)
                 except Exception as e:
+                    print(f"DEBUG: Fallback step {step['name']} failed with error: {e}")
                     log_event(
                         f"[Fallback Failure] Fallback step {step['name']} failed: {e}",
                         extra={
@@ -821,6 +830,7 @@ def register_route_backend_chats(app):
                         step['on_error'](e)
                     continue
             # If all fail, return default error
+            print("DEBUG: All fallback steps failed, returning default error")
             return ("Sorry, I encountered an error.", gpt_model, None, None)
 
         # --- Inject facts as a system message at the top of conversation_history_for_api ---
@@ -936,6 +946,63 @@ def register_route_backend_chats(app):
         enable_semantic_kernel = settings.get('enable_semantic_kernel', False)
         user_enable_agents = user_settings.get('enable_agents', False)
         redis_client = None
+        
+        # Check if Azure Agent Service should be primary
+        settings_local = get_settings()
+        enable_azure_agent_service = settings_local.get('enable_azure_agent_service', False)
+        
+        print(f"DEBUG: enable_azure_agent_service = {enable_azure_agent_service}")
+        print(f"DEBUG: azure_agent_service_use_env = {settings_local.get('azure_agent_service_use_env', True)}")
+        print(f"DEBUG: azure_ai_foundry_endpoint = {settings_local.get('azure_ai_foundry_endpoint')}")
+        print(f"DEBUG: azure_ai_foundry_project = {settings_local.get('azure_ai_foundry_project')}")
+        print(f"DEBUG: azure_ai_foundry_agent_id = {settings_local.get('azure_ai_foundry_agent_id')}")
+        print(f"DEBUG: has azure_ai_foundry_api_key = {bool(settings_local.get('azure_ai_foundry_api_key'))}")
+        
+        # --- Azure Agent Service as PRIMARY when enabled ---
+        if enable_azure_agent_service:
+            def invoke_azure_agent():
+                # Build messages in the expected shape
+                messages_payload: List[Dict[str, str]] = [
+                    {"role": m["role"], "content": m["content"]}
+                    for m in conversation_history_for_api
+                ]
+                from functions_azure_agent_service import invoke_azure_agent_service
+
+                endpoint = None
+                project = None
+                agent_name_or_id = None
+                api_key = None
+                if not settings_local.get('azure_agent_service_use_env', True):
+                    endpoint = settings_local.get('azure_ai_foundry_endpoint') or None
+                    project = settings_local.get('azure_ai_foundry_project') or None
+                    agent_name_or_id = settings_local.get('azure_ai_foundry_agent_id') or None
+
+                assistant_text, raw_resp = invoke_azure_agent_service(
+                    messages_payload,
+                    project_name=project,
+                    agent_name_or_id=agent_name_or_id,
+                    endpoint=endpoint,
+                )
+                return assistant_text
+
+            def azure_agent_success(result):
+                # result is the assistant text
+                return (str(result), "azure-agent-service", "azure-agent-service", None)
+
+            def azure_agent_error(e):
+                log_event(
+                    f"Azure Agent Service invocation failed: {e}",
+                    level=logging.WARNING,
+                    exceptionTraceback=True,
+                )
+
+            # Add Azure Agent Service as PRIMARY (first fallback step)
+            fallback_steps.append({
+                'name': 'azure-agent-service',
+                'func': invoke_azure_agent,
+                'on_success': azure_agent_success,
+                'on_error': azure_agent_error
+            })
         # --- Semantic Kernel state management (per-user mode) ---
         if enable_semantic_kernel and per_user_semantic_kernel:
             redis_client = current_app.config.get('SESSION_REDIS') if 'current_app' in globals() else None
@@ -954,7 +1021,9 @@ def register_route_backend_chats(app):
         all_agents = get_kernel_agents()
         
         log_event(f"[SKChat] Semantic Kernel enabled. Per-user mode: {per_user_semantic_kernel}, Multi-agent orchestration: {enable_multi_agent_orchestration}, agents enabled: {user_enable_agents}")
-        if enable_semantic_kernel and user_enable_agents:
+        
+        # Only set up Semantic Kernel agents if Azure Agent Service is NOT the primary choice
+        if enable_semantic_kernel and user_enable_agents and not enable_azure_agent_service:
         # PATCH: Use new agent selection logic
             agent_name_to_select = None
             if per_user_semantic_kernel:
