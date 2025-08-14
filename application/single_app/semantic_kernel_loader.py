@@ -149,7 +149,8 @@ def resolve_agent_config(agent, settings):
                 "display_name": agent.get("display_name", agent.get("name")),
                 "description": agent.get("description", ""),
                 "id": agent.get("id", ""),
-                "default_agent": agent.get("default_agent", False) #[Deprecated, use 'selected_agent' or 'global_selected_agent' in agent config]
+                "default_agent": agent.get("default_agent", False), #[Deprecated, use 'selected_agent' or 'global_selected_agent' in agent config]
+                "enable_agent_gpt_apim": agent.get("enable_agent_gpt_apim", False)  # Add missing field
             }
         except Exception as e:
             log_event(f"[SK Loader] Error resolving agent config: {e}", level=logging.ERROR, exceptionTraceback=True)
@@ -344,7 +345,7 @@ def load_single_agent_for_kernel(kernel, agent_cfg, settings, context_obj, redis
                 "aoai_key": f"{agent_config['key'][:3]}..." if agent_config["key"] else None,
                 "aoai_deployment": agent_config["deployment"],
                 "agent_name": agent_config["name"],
-                "apim_enabled": agent_config["enable_agent_gpt_apim"]
+                "apim_enabled": agent_config.get("enable_agent_gpt_apim", False)
             },
             level=logging.INFO
         )

@@ -130,43 +130,6 @@
             </button>
         </div>
 
-        <!-- Azure Agent Service (Azure AI Foundry Agents) -->
-        <div class="card mb-4 shadow-sm">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">Azure Agent Service</h5>
-                <div class="form-check form-switch">
-                    <input class="form-check-input" type="checkbox" id="enable_azure_agent_service" name="enable_azure_agent_service" {% if settings.enable_azure_agent_service %}checked{% endif %}>
-                    <label class="form-check-label" for="enable_azure_agent_service">Enable</label>
-                </div>
-            </div>
-            <div class="card-body">
-                <div class="alert alert-info">
-                    Configure Azure AI Foundry Agent invocation. You can rely on environment variables or set values here.
-                </div>
-                <div class="form-check form-switch mb-3">
-                    <input class="form-check-input" type="checkbox" id="azure_agent_service_use_env" name="azure_agent_service_use_env" {% if settings.azure_agent_service_use_env %}checked{% endif %}>
-                    <label class="form-check-label" for="azure_agent_service_use_env">Use environment variables</label>
-                </div>
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <label for="azure_ai_foundry_endpoint" class="form-label">Endpoint</label>
-                        <input type="text" class="form-control" id="azure_ai_foundry_endpoint" name="azure_ai_foundry_endpoint" placeholder="https://<project>.<region>.inference.ai.azure.com" value="{{ settings.azure_ai_foundry_endpoint or '' }}">
-                    </div>
-                    <div class="col-md-3">
-                        <label for="azure_ai_foundry_project" class="form-label">Project Name</label>
-                        <input type="text" class="form-control" id="azure_ai_foundry_project" name="azure_ai_foundry_project" value="{{ settings.azure_ai_foundry_project or '' }}">
-                    </div>
-                    <div class="col-md-3">
-                        <label for="azure_ai_foundry_agent_id" class="form-label">Agent ID/Name</label>
-                        <input type="text" class="form-control" id="azure_ai_foundry_agent_id" name="azure_ai_foundry_agent_id" value="{{ settings.azure_ai_foundry_agent_id or '' }}">
-                    </div>
-                </div>
-                <div class="form-text mt-2">
-                    Env vars: AZURE_AI_FOUNDRY_ENDPOINT, AZURE_AI_FOUNDRY_PROJECT, AZURE_AI_FOUNDRY_AGENT_ID.
-                </div>
-            </div>
-        </div>
-
         <!-- Settings Walkthrough Inline Container -->
         <div id="settings-walkthrough-container" class="card mb-4 shadow-sm" style="display: none;">
             <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
@@ -643,6 +606,10 @@
                         <input class="form-check-input" type="checkbox" role="switch" id="toggle-enable-agents-agents" name="enable_semantic_kernel" {% if settings.enable_semantic_kernel %}checked{% endif %}>
                         <label class="form-check-label ms-2" for="toggle-enable-agents-agents">Enable Agents</label>
                     </div>
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input" type="checkbox" role="switch" id="toggle-enable-agent-service" name="enable_azure_agent_service" {% if settings.enable_azure_agent_service %}checked{% endif %}>
+                        <label class="form-check-label ms-2" for="toggle-enable-agent-service">Enable Agent Service</label>
+                    </div>
                     <div id="per-user-sk-restart-msg" class="text-muted small mb-2" style="display:none;">Requires a restart to take effect.</div>
                 </div>
                 {% if not settings.enable_semantic_kernel %}
@@ -732,6 +699,42 @@
                         </table>
                     </div>
                 {% endif %}
+                
+                <!-- Azure Agent Service (Azure AI Foundry Agents) - Independent Section -->
+                <div id="agent-service-section" {% if not settings.enable_azure_agent_service %}style="display: none;"{% endif %}>
+                    <div class="card mt-4 mb-3">
+                        <div class="card-header">
+                            <h5 class="mb-0">Azure Agent Service</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="alert alert-info">
+                                Configure Azure AI Foundry Agent invocation. You can rely on environment variables or set values here.
+                            </div>
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="azure_agent_service_use_env" name="azure_agent_service_use_env" {% if settings.azure_agent_service_use_env %}checked{% endif %}>
+                                <label class="form-check-label" for="azure_agent_service_use_env">Use environment variables</label>
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label for="azure_ai_foundry_endpoint" class="form-label">Endpoint</label>
+                                    <input type="text" class="form-control" id="azure_ai_foundry_endpoint" name="azure_ai_foundry_endpoint" placeholder="https://<project>.<region>.inference.ai.azure.com" value="{{ settings.azure_ai_foundry_endpoint or '' }}">
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="azure_ai_foundry_project" class="form-label">Project Name</label>
+                                    <input type="text" class="form-control" id="azure_ai_foundry_project" name="azure_ai_foundry_project" value="{{ settings.azure_ai_foundry_project or '' }}">
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="azure_ai_foundry_agent_id" class="form-label">Agent ID/Name</label>
+                                    <input type="text" class="form-control" id="azure_ai_foundry_agent_id" name="azure_ai_foundry_agent_id" value="{{ settings.azure_ai_foundry_agent_id or '' }}">
+                                </div>
+                            </div>
+                            <div class="form-text mt-2">
+                                <strong>Environment variables:</strong><br>
+                                AZURE_AI_FOUNDRY_ENDPOINT, AZURE_AI_FOUNDRY_PROJECT, AZURE_AI_FOUNDRY_AGENT_ID
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
 
@@ -2791,6 +2794,21 @@
                 // Recalculate available steps and refresh navigation
                 const currentStep = getCurrentWalkthroughStep();
                 navigateToWalkthroughStep(currentStep);
+            });
+        }
+        
+        // Handle Agent Service toggle (independent of main Agents toggle)
+        const agentServiceToggle = document.getElementById('toggle-enable-agent-service');
+        if (agentServiceToggle) {
+            agentServiceToggle.addEventListener('change', function() {
+                const agentServiceSection = document.getElementById('agent-service-section');
+                if (agentServiceSection) {
+                    if (this.checked) {
+                        agentServiceSection.style.display = 'block';
+                    } else {
+                        agentServiceSection.style.display = 'none';
+                    }
+                }
             });
         }
         

@@ -8,6 +8,29 @@ import { loadUserPrompts, loadGroupPrompts, initializePromptInteractions } from 
 import { loadUserSettings } from "./chat-layout.js";
 import { showToast } from "./chat-toast.js";
 
+// Function to check Azure Agent Service setting and update model dropdown
+async function checkAndUpdateModelDropdownForAgentService() {
+    try {
+        const response = await fetch('/api/user/agent/settings');
+        if (!response.ok) {
+            console.error('Failed to fetch agent settings');
+            return;
+        }
+        
+        const settings = await response.json();
+        const enableAzureAgentService = settings.enable_azure_agent_service;
+        const modelSelect = document.getElementById("model-select");
+        
+        if (enableAzureAgentService && modelSelect) {
+            // Clear existing options and add "Agent Service" option
+            modelSelect.innerHTML = '<option value="agent-service" selected>Agent Service</option>';
+            console.log('Model dropdown updated to show "Agent Service" because Azure Agent Service is enabled');
+        }
+    } catch (error) {
+        console.error('Error checking Azure Agent Service settings:', error);
+    }
+}
+
 window.addEventListener('DOMContentLoaded', () => {
   console.log("DOM Content Loaded. Starting initializations."); // Log start
 
@@ -75,6 +98,9 @@ window.addEventListener('DOMContentLoaded', () => {
               modelSelect.value = userSettings.preferredModelDeployment;
           }
       }
+
+      // Check if Azure Agent Service is enabled and modify model dropdown accordingly
+      checkAndUpdateModelDropdownForAgentService();
 
       // --- Initialize Document-related UI ---
       // This part handles URL params for documents - KEEP IT

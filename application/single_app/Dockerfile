@@ -21,6 +21,9 @@ ENV PATH="/app/venv/bin:$PATH"
 # Copy application code and set ownership
 COPY --chown=nonroot:nonroot application/single_app ./
 
+# Copy artifacts (if they exist)
+COPY --chown=nonroot:nonroot artifacts/open_api /artifacts/open_api
+
 # Copy the virtualenv from the builder stage
 COPY --from=builder --chown=nonroot:nonroot /app/venv /app/venv
 

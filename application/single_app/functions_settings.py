@@ -245,7 +245,7 @@ def get_settings():
         'audio_files_key': '',
 
     # Azure Agent Service (Azure AI Foundry Agents) - optional integration
-    'enable_azure_agent_service': False,
+    'enable_azure_agent_service': True,
     # If true, the integration will read endpoint/project/agent_id from environment variables.
     # Otherwise, it will use the values below.
     'azure_agent_service_use_env': True,
