@@ -5,6 +5,9 @@
 
 #### New Features
 
+*   **GPT-5 Support**
+    *   Added support for the GPT-5 family across Azure deployments: `gpt-5-nano`, `gpt-5-mini`, `gpt-5-chat`, and `gpt-5`.
+
 *   **Public Workspaces**
     *   Introduced organization-wide document repositories accessible to all users, enabling shared knowledge repositories and improved organization-wide knowledge discovery.
     *   Features include: centralized document management, seamless workspace scope switching, and organization-wide read access with admin-controlled write permissions.
