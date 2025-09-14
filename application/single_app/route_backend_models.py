@@ -57,7 +57,7 @@ def register_route_backend_models(app):
                 if model_name and (
                     "gpt" in model_name.lower() or
                     re.search(r"o\d+", model_name.lower())
-                ):
+                ) and "image" not in model_name.lower():
                     models.append({
                         "deploymentName": d.name,
                         "modelName": model_name
