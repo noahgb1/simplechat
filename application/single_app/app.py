@@ -268,7 +268,25 @@ def reload_kernel_if_needed():
 
 @app.after_request
 def add_security_headers(response):
-    response.headers['X-Content-Type-Options'] = 'nosniff'
+    """
+    Add comprehensive security headers to all responses to protect against
+    various web vulnerabilities including MIME sniffing attacks.
+    """
+    from config import SECURITY_HEADERS, ENABLE_STRICT_TRANSPORT_SECURITY, HSTS_MAX_AGE
+    
+    # Apply all configured security headers
+    for header_name, header_value in SECURITY_HEADERS.items():
+        response.headers[header_name] = header_value
+    
+    # Add HSTS header only if HTTPS is enabled and configured
+    if ENABLE_STRICT_TRANSPORT_SECURITY and request.is_secure:
+        response.headers['Strict-Transport-Security'] = f'max-age={HSTS_MAX_AGE}; includeSubDomains; preload'
+    
+    # Ensure X-Content-Type-Options is always present for specific content types
+    # This provides extra protection against MIME sniffing attacks
+    if response.content_type and any(ct in response.content_type.lower() for ct in ['text/', 'application/json', 'application/javascript', 'application/octet-stream']):
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+    
     return response
 
 # Register a custom Jinja filter for Markdown
@@ -425,7 +443,7 @@ if __name__ == '__main__':
 
     if debug_mode:
         # Local development with HTTPS
-        app.run(host="0.0.0.0", port=5000, debug=True, ssl_context='adhoc')
+        app.run(host="0.0.0.0", port=5001, debug=True, ssl_context='adhoc')
     else:
         # Production
         port = int(os.environ.get("PORT", 5000))
