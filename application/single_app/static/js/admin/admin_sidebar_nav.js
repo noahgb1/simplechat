@@ -178,6 +178,7 @@ function scrollToSection(sectionId) {
         'appearance-section': 'appearance-section',
         'classification-banner-section': 'classification-banner-section',
         'external-links-section': 'external-links-section',
+        'health-check-section': 'health-check-section',
         'system-settings-section': 'system-settings-section',
         // Logging tab sections
         'application-insights-section': 'application-insights-section',
