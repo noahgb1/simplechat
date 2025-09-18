@@ -561,6 +561,7 @@ export function appendMessage(
     const withASCIITables = convertASCIIDashTableToMarkdown(withPSVTables);
     const sanitizedHtml = DOMPurify.sanitize(marked.parse(withASCIITables));
     const htmlContent = addTargetBlankToExternalLinks(sanitizedHtml);
+
     const mainMessageHtml = `<div class="message-text">${htmlContent}</div>`; // Renamed for clarity
 
     // --- Footer Content (Copy, Feedback, Citations) ---

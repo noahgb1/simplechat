@@ -77,9 +77,9 @@
     *   (Ref: `functions_authentication.py`, `functions_documents.py`, Video Indexer workflow logging)
 
 ### **(v0.229.014)**
-
 #### Bug Fixes
 
+##### Public Workspace Management Fixes
 *   **Public Workspace Management Permission Fix**
     *   Fixed incorrect permission checking for public workspace management operations when "Require Membership to Create Public Workspaces" setting was enabled.
     *   **Issue**: Users with legitimate access to manage workspaces (Owner/Admin/DocumentManager) were incorrectly shown "Forbidden" errors when accessing management functionality.
@@ -97,6 +97,8 @@
     *   **Benefits**: Improved workspace identification, consistent with Group scope naming pattern, better navigation between workspace scopes.
     *   (Ref: `chat-documents.js`, scope label updates, dynamic workspace display)
 
+=======
+##### User Interface and Content Rendering Fixes
 *   **Unicode Table Rendering Fix**
     *   Fixed issue where AI-generated tables using Unicode box-drawing characters were not rendering as proper HTML tables in the chat interface.
     *   **Problem**: AI agents (particularly ESAM Agent) generated Unicode tables that appeared as plain text instead of formatted tables.
