@@ -82,6 +82,10 @@ register_openapi_routes(app)
 # Register Enhanced Citations routes
 register_enhanced_citations_routes(app)
 
+# Register Swagger documentation routes
+from swagger_wrapper import register_swagger_routes
+register_swagger_routes(app)
+
 from flask import g
 from flask_session import Session
 from redis import Redis
@@ -510,7 +514,7 @@ if __name__ == '__main__':
 
     if debug_mode:
         # Local development with HTTPS
-        app.run(host="0.0.0.0", port=5000, debug=True, ssl_context='adhoc')
+        app.run(host="0.0.0.0", port=5001, debug=True, ssl_context='adhoc')
     else:
         # Production
         port = int(os.environ.get("PORT", 5000))
