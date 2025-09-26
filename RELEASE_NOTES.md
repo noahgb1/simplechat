@@ -1,6 +1,19 @@
 <!-- BEGIN RELEASE_NOTES.MD BLOCK -->
 # Feature Release
 
+### **(v0.229.062)**
+
+#### Bug Fixes
+
+*   **Enhanced Citations CSP Fix**
+    *   Fixed Content Security Policy (CSP) violation that prevented enhanced citations PDF documents from being displayed in iframe modals.
+    *   **Issue**: CSP directive `frame-ancestors 'none'` blocked PDF endpoints from being embedded in iframes, causing console errors: "Refused to frame '...' because an ancestor violates the following Content Security Policy directive: 'frame-ancestors 'none''".
+    *   **Root Cause**: Enhanced citations use iframes to display PDF documents via `/api/enhanced_citations/pdf` endpoint, but the restrictive CSP policy prevented same-origin iframe embedding.
+    *   **Solution**: Changed CSP configuration from `frame-ancestors 'none'` to `frame-ancestors 'self'`, allowing same-origin framing while maintaining security against external clickjacking attacks.
+    *   **Security Impact**: No reduction in security posture - external websites still cannot embed application content, only same-origin framing is now allowed.
+    *   **Benefits**: Enhanced citations PDF modals now display correctly without CSP violations, improved user experience for document viewing.
+    *   (Ref: `config.py` SECURITY_HEADERS, `test_enhanced_citations_csp_fix.py`, CSP policy update)
+
 ### **(v0.229.061)**
 
 #### Bug Fixes
@@ -11,6 +24,46 @@
     *   Modified chat page layout to hide built-in left pane when top nav is enabled, preventing redundant navigation elements.
     *   Implemented proper positioning calculations to account for top navigation bar height with and without classification banner.
     *   (Ref: `_sidebar_short_nav.html`, `base.html`, `chats.html`, conditional template inclusion, layout positioning fixes)
+
+### **(v0.229.058)**
+
+#### New Features
+
+*   **Admin Left-Hand Navigation Enhancement**
+    *   Introduced an innovative dual-navigation approach for admin settings, providing both traditional top-nav tabs and a modern left-hand hierarchical navigation system.
+    *   **Key Features**: Conditional navigation that automatically detects layout preference, hierarchical structure with two-level navigation (tabs → sections), smart state management for active states and submenus.
+    *   **Comprehensive Organization**: All admin tabs now include organized sub-sections with proper section targeting for enhanced navigation.
+    *   **Benefits**: Matches conversation navigation patterns users already know, provides better organization for complex admin settings, enables bookmarkable deep links to specific sections.
+    *   (Ref: `admin_settings.html`, `_sidebar_nav.html`, `admin_sidebar_nav.js`)
+
+*   **Time-Based Logging Turnoff Feature**
+    *   Provides administrators with automatic turnoff capabilities for debug logging and file process logging to manage costs and security risks.
+    *   **Cost Management**: Prevents excessive logging costs by automatically disabling logging after specified time periods (minutes to weeks).
+    *   **Risk Mitigation**: Reduces security risks by ensuring debug logging doesn't remain enabled indefinitely.
+    *   **Configuration Options**: Supports time ranges from 1-120 minutes, 1-24 hours, 1-7 days, and 1-52 weeks for both debug logging and file processing logs.
+    *   **Background Monitoring**: Daemon thread monitors and enforces timer expiration automatically.
+    *   (Ref: `admin_settings.html`, `route_frontend_admin_settings.py`, `app.py`)
+
+*   **Comprehensive Table Support Enhancement**
+    *   Enhanced table rendering to support multiple input formats ensuring tables from AI agents or users are properly displayed as styled HTML tables.
+    *   **Format Support**: Unicode box-drawing tables (┌─┬─┐ style), markdown tables wrapped in code blocks, pipe-separated values (PSV) in code blocks, standard markdown tables.
+    *   **Processing Pipeline**: Implements preprocessing pipeline that detects and converts various table formats to standard markdown before parsing.
+    *   **Bootstrap Integration**: All generated tables automatically receive Bootstrap styling with striped rows and responsive design.
+    *   (Ref: `chat-messages.js`, table conversion functions, functional tests)
+
+*   **Public Workspace Management Enhancement**
+    *   Added "Go to Public Workspace" button to Public Workspace Management page for quick navigation from management to workspace usage.
+    *   **User Experience**: One-click navigation from management page to public workspace, automatically sets workspace as active for the user.
+    *   **Consistency**: Aligns with existing Group Workspace management functionality, provides consistent workflow between management and usage.
+    *   (Ref: `manage_public_workspace.html`, `route_frontend_public_workspaces.py`)
+
+*   **Multimedia Support Reorganization**
+    *   Reorganized Multimedia Support section from "Other" tab to "Search and Extract" tab with comprehensive Azure AI Video Indexer configuration guide.
+    *   **Enhanced Configuration**: Added detailed setup instructions modal with step-by-step account creation, API key acquisition guidelines, and troubleshooting section.
+    *   **Improved Organization**: Groups related search and extraction capabilities together, maintains all existing multimedia settings and functionality.
+    *   (Ref: `admin_settings.html`, `_video_indexer_info.html`)
+
+#### Bug Fixes
 
 ### **(v0.229.058)**
 
@@ -88,7 +141,6 @@
     *   (Ref: `functions_authentication.py`, `functions_documents.py`, Video Indexer workflow logging)
 
 ### **(v0.229.014)**
-
 #### Bug Fixes
 
 ##### Public Workspace Management Fixes
