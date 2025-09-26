@@ -7,7 +7,7 @@ from functions_settings import *
 import os
 import requests
 from flask import current_app
-from swagger_wrapper import swagger_route, get_auth_security, COMMON_SCHEMAS
+from swagger_wrapper import swagger_route, get_auth_security
 
 def register_route_backend_documents(app):
     @app.route('/api/get_file_content', methods=['POST'])

@@ -22,7 +22,7 @@ from functions_chat import *
 from functions_conversation_metadata import collect_conversation_metadata, update_conversation_with_metadata
 from functions_debug import debug_print
 from flask import current_app
-from swagger_wrapper import swagger_route, get_auth_security, COMMON_SCHEMAS
+from swagger_wrapper import swagger_route, get_auth_security
 
 
 def get_kernel():

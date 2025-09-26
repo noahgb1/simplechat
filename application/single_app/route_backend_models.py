@@ -3,7 +3,7 @@
 from config import *
 from functions_authentication import *
 from functions_settings import *
-from swagger_wrapper import swagger_route, get_auth_security, COMMON_SCHEMAS
+from swagger_wrapper import swagger_route, get_auth_security
 import re
 
 

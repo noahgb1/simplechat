@@ -11,7 +11,7 @@ from functions_global_agents import get_global_agents, save_global_agent, delete
 from functions_authentication import *
 from functions_appinsights import log_event
 from json_schema_validation import validate_agent
-from swagger_wrapper import swagger_route, get_auth_security, COMMON_SCHEMAS
+from swagger_wrapper import swagger_route, get_auth_security
 
 bpa = Blueprint('admin_agents', __name__)
 

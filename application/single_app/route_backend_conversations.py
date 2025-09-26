@@ -6,7 +6,7 @@ from functions_settings import *
 from functions_conversation_metadata import get_conversation_metadata
 from flask import Response, request
 from functions_debug import debug_print
-from swagger_wrapper import swagger_route, get_auth_security, COMMON_SCHEMAS
+from swagger_wrapper import swagger_route, get_auth_security
 
 def register_route_backend_conversations(app):
 
