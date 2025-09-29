@@ -449,6 +449,41 @@ def _generate_summary_from_function_name(func_name: str) -> str:
     words = func_name.replace('_', ' ').split()
     return ' '.join(word.capitalize() for word in words)
 
+def _extract_file_tag(view_func) -> str:
+    """
+    Extract file-based tag from view function's source file.
+    
+    Args:
+        view_func: Flask view function
+        
+    Returns:
+        File-based tag name
+    """
+    try:
+        # Get the module name where the view function is defined
+        module_name = view_func.__module__
+        
+        # Extract meaningful part from module name
+        if '.' in module_name:
+            # Get the last part (e.g., 'route_backend_agents' from 'app.route_backend_agents')
+            module_name = module_name.split('.')[-1]
+        
+        # Convert module name to a readable tag
+        if module_name.startswith('route_'):
+            # Remove 'route_' prefix and format nicely
+            tag_name = module_name[6:]  # Remove 'route_'
+            # Convert underscores to spaces and capitalize
+            tag_name = ' '.join(word.capitalize() for word in tag_name.split('_'))
+            return f"📄 {tag_name}"  # Add file emoji for visual distinction
+        elif module_name == 'app':
+            return "📄 Main App"
+        else:
+            # Fallback for other module names
+            tag_name = ' '.join(word.capitalize() for word in module_name.split('_'))
+            return f"📄 {tag_name}"
+    except:
+        return "📄 Unknown Module"
+
 def _extract_tags_from_route_path(route_path: str) -> List[str]:
     """
     Extract tags from route path segments.
@@ -566,20 +601,35 @@ def extract_route_info(app: Flask) -> Dict[str, Any]:
     Returns:
         OpenAPI specification dictionary
     """
+    # Get server URL dynamically from request context
+    server_url = "/"
+    server_description = "Current server"
+    
+    try:
+        # Try to get the actual server URL from the current request
+        if request:
+            scheme = request.scheme
+            host = request.host
+            server_url = f"{scheme}://{host}"
+            server_description = f"SimpleChat API Server ({host})"
+    except RuntimeError:
+        # Outside request context, fall back to relative URL
+        pass
+    
     openapi_spec = {
         "openapi": "3.0.3",
         "info": {
             "title": "SimpleChat API",
             "description": "Auto-generated API documentation for SimpleChat application",
-            "version": getattr(app.config, 'VERSION', '1.0.0'),
+            "version": app.config.get('VERSION', '1.0.0'),
             "contact": {
                 "name": "SimpleChat Support"
             }
         },
         "servers": [
             {
-                "url": "/",
-                "description": "Current server"
+                "url": server_url,
+                "description": server_description
             }
         ],
         "paths": {},
@@ -647,9 +697,14 @@ def extract_route_info(app: Flask) -> Dict[str, Any]:
             
             if swagger_doc:
                 # Auto-generate tags from route path if not provided and auto_tags is enabled
-                final_tags = swagger_doc.get('tags', [])
+                final_tags = swagger_doc.get('tags', []) or []
                 if swagger_doc.get('auto_tags', True) and not final_tags:
                     final_tags = _extract_tags_from_route_path(rule.rule)
+                
+                # Always add file-based tag for organization
+                file_tag = _extract_file_tag(view_func)
+                if file_tag not in final_tags:
+                    final_tags = [file_tag] + final_tags  # Put file tag first
                 
                 # Use provided swagger documentation
                 operation = {
@@ -689,15 +744,18 @@ def extract_route_info(app: Flask) -> Dict[str, Any]:
                 
             else:
                 # Generate basic documentation
+                file_tag = _extract_file_tag(view_func)
+                route_tags = [file_tag, "Undocumented"]
+                
                 operation = {
                     "summary": f"{method} {path}",
                     "description": f"Endpoint: {rule.endpoint}",
-                    "tags": ["Undocumented"],
+                    "tags": route_tags,
                     "responses": {
                         "200": {"description": "Success"}
                     }
                 }
-                tags_set.add("Undocumented")
+                tags_set.update(route_tags)
             
             openapi_spec["paths"][path][method_lower] = operation
     
@@ -708,13 +766,37 @@ def extract_route_info(app: Flask) -> Dict[str, Any]:
 
 def register_swagger_routes(app: Flask):
     """
-    Register swagger documentation routes.
+    Register swagger documentation routes if enabled in settings.
     
     Args:
         app: Flask application instance
     """
+    # Import here to avoid circular imports
+    from functions_settings import get_settings
+    
+    # Check if swagger is enabled in settings
+    settings = get_settings()
+    if not settings.get('enable_swagger', True):  # Default to True if setting not found
+        print("Swagger documentation is disabled in admin settings.")
+        return
     
     @app.route('/swagger')
+    @swagger_route(
+        summary="Interactive Swagger UI",
+        description="Serve the Swagger UI interface for API documentation and testing.",
+        tags=["Documentation"],
+        responses={
+            200: {
+                "description": "Swagger UI HTML page",
+                "content": {
+                    "text/html": {
+                        "schema": {"type": "string"}
+                    }
+                }
+            }
+        },
+        security=get_auth_security()
+    )
     @login_required
     def swagger_ui():
         """Serve Swagger UI for API documentation."""
@@ -745,13 +827,314 @@ def register_swagger_routes(app: Flask):
         .swagger-ui .topbar .download-url-wrapper {
             display: none;
         }
+        
+        /* Custom Search Styles */
+        .api-search-container {
+            position: sticky;
+            top: 0;
+            background: #f7f7f7;
+            border-bottom: 2px solid #1976d2;
+            padding: 15px 20px;
+            z-index: 1000;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .api-search-box {
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+            position: relative;
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 12px 45px 12px 15px;
+            border: 2px solid #ddd;
+            border-radius: 25px;
+            font-size: 16px;
+            outline: none;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        .search-input:focus {
+            border-color: #1976d2;
+            box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
+        }
+        
+        .search-icon {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #666;
+            font-size: 18px;
+        }
+        
+        .search-results-info {
+            text-align: center;
+            margin-top: 10px;
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .clear-search {
+            position: absolute;
+            right: 40px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #999;
+            cursor: pointer;
+            font-size: 18px;
+            padding: 0;
+            width: 20px;
+            height: 20px;
+            display: none;
+        }
+        
+        .clear-search:hover {
+            color: #666;
+        }
+        
+        /* Hide filtered out operations */
+        .opblock.filtered-out {
+            display: none !important;
+        }
+        
+        /* Hide empty tags */
+        .opblock-tag-section.empty-tag {
+            display: none !important;
+        }
+        
+        /* Highlight matching text */
+        .search-highlight {
+            background: yellow;
+            font-weight: bold;
+        }
+        
+        /* Search shortcuts */
+        .search-shortcuts {
+            text-align: center;
+            margin-top: 8px;
+            font-size: 12px;
+            color: #888;
+        }
+        
+        .search-shortcut {
+            display: inline-block;
+            margin: 0 8px;
+            padding: 2px 6px;
+            background: #e0e0e0;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        
+        .search-shortcut:hover {
+            background: #d0d0d0;
+        }
     </style>
 </head>
 <body>
+    <!-- Custom Search Interface -->
+    <div class="api-search-container">
+        <div class="api-search-box">
+            <input type="text" 
+                   id="apiSearch" 
+                   class="search-input" 
+                   placeholder="🔍 Search endpoints, tags, methods, or descriptions... (e.g., 'POST agents', 'Backend', 'user')"
+                   autocomplete="off">
+            <button class="clear-search" id="clearSearch" title="Clear search">×</button>
+            <span class="search-icon">🔍</span>
+        </div>
+        <div class="search-results-info" id="searchResults"></div>
+        <div class="search-shortcuts">
+            <span class="search-shortcut" onclick="setSearchFilter('POST')">POST</span>
+            <span class="search-shortcut" onclick="setSearchFilter('GET')">GET</span>
+            <span class="search-shortcut" onclick="setSearchFilter('Backend')">Backend</span>
+            <span class="search-shortcut" onclick="setSearchFilter('Frontend')">Frontend</span>
+            <span class="search-shortcut" onclick="setSearchFilter('📄')">Files</span>
+            <span class="search-shortcut" onclick="setSearchFilter('admin')">Admin</span>
+            <span class="search-shortcut" onclick="setSearchFilter('api')">API</span>
+            <span class="search-shortcut" onclick="clearSearch()">Clear</span>
+        </div>
+    </div>
+    
     <div id="swagger-ui"></div>
     <script src="/static/swagger-ui/swagger-ui-bundle.js"></script>
     <script src="/static/swagger-ui/swagger-ui-standalone-preset.js"></script>
     <script>
+        let currentSpec = null;
+        let allOperations = [];
+        
+        // Search functionality
+        function setupSearch() {
+            const searchInput = document.getElementById('apiSearch');
+            const clearButton = document.getElementById('clearSearch');
+            const resultsInfo = document.getElementById('searchResults');
+            
+            // Collect all operations for searching
+            setTimeout(collectOperations, 1000); // Wait for Swagger UI to render
+            
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.trim();
+                if (query) {
+                    clearButton.style.display = 'block';
+                    performSearch(query);
+                } else {
+                    clearButton.style.display = 'none';
+                    clearSearch();
+                }
+            });
+            
+            clearButton.addEventListener('click', clearSearch);
+            
+            // Keyboard shortcuts
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    clearSearch();
+                }
+            });
+        }
+        
+        function collectOperations() {
+            allOperations = [];
+            const operations = document.querySelectorAll('.opblock');
+            
+            operations.forEach((op, index) => {
+                const summary = op.querySelector('.opblock-summary-description')?.textContent || '';
+                const path = op.querySelector('.opblock-summary-path')?.textContent || '';
+                const method = op.querySelector('.opblock-summary-method')?.textContent || '';
+                const tags = Array.from(op.closest('.opblock-tag-section')?.querySelectorAll('.opblock-tag') || [])
+                    .map(tag => tag.textContent).join(' ');
+                
+                allOperations.push({
+                    element: op,
+                    summary: summary.toLowerCase(),
+                    path: path.toLowerCase(),
+                    method: method.toLowerCase(),
+                    tags: tags.toLowerCase(),
+                    searchText: `${summary} ${path} ${method} ${tags}`.toLowerCase()
+                });
+            });
+            
+            console.log(`Collected ${allOperations.length} operations for search`);
+        }
+        
+        function performSearch(query) {
+            const searchTerms = query.toLowerCase().split(' ').filter(term => term.length > 0);
+            let visibleCount = 0;
+            let totalCount = allOperations.length;
+            
+            if (allOperations.length === 0) {
+                collectOperations();
+                if (allOperations.length === 0) {
+                    setTimeout(() => performSearch(query), 500);
+                    return;
+                }
+            }
+            
+            allOperations.forEach(op => {
+                let matches = true;
+                
+                // Check if all search terms match
+                for (const term of searchTerms) {
+                    if (!op.searchText.includes(term)) {
+                        matches = false;
+                        break;
+                    }
+                }
+                
+                if (matches) {
+                    op.element.classList.remove('filtered-out');
+                    visibleCount++;
+                    highlightMatches(op.element, searchTerms);
+                } else {
+                    op.element.classList.add('filtered-out');
+                }
+            });
+            
+            // Update results info
+            const resultsInfo = document.getElementById('searchResults');
+            if (visibleCount === 0) {
+                resultsInfo.textContent = `No results found for "${query}"`;
+                resultsInfo.style.color = '#e74c3c';
+            } else if (visibleCount === totalCount) {
+                resultsInfo.textContent = `Showing all ${totalCount} endpoints`;
+                resultsInfo.style.color = '#666';
+            } else {
+                resultsInfo.textContent = `Showing ${visibleCount} of ${totalCount} endpoints`;
+                resultsInfo.style.color = '#27ae60';
+            }
+            
+            // Hide empty tag sections
+            updateTagSections();
+        }
+        
+        function highlightMatches(element, searchTerms) {
+            // Remove existing highlights
+            const highlighted = element.querySelectorAll('.search-highlight');
+            highlighted.forEach(el => {
+                el.outerHTML = el.innerHTML;
+            });
+            
+            // Add new highlights
+            const textElements = element.querySelectorAll('.opblock-summary-description, .opblock-summary-path');
+            textElements.forEach(textEl => {
+                let html = textEl.innerHTML;
+                searchTerms.forEach(term => {
+                    const regex = new RegExp(`(${term})`, 'gi');
+                    html = html.replace(regex, '<span class="search-highlight">$1</span>');
+                });
+                textEl.innerHTML = html;
+            });
+        }
+        
+        function updateTagSections() {
+            const tagSections = document.querySelectorAll('.opblock-tag-section');
+            tagSections.forEach(section => {
+                const visibleOps = section.querySelectorAll('.opblock:not(.filtered-out)');
+                if (visibleOps.length === 0) {
+                    section.classList.add('empty-tag');
+                } else {
+                    section.classList.remove('empty-tag');
+                }
+            });
+        }
+        
+        function clearSearch() {
+            const searchInput = document.getElementById('apiSearch');
+            const clearButton = document.getElementById('clearSearch');
+            const resultsInfo = document.getElementById('searchResults');
+            
+            searchInput.value = '';
+            clearButton.style.display = 'none';
+            resultsInfo.textContent = '';
+            
+            // Show all operations
+            allOperations.forEach(op => {
+                op.element.classList.remove('filtered-out');
+                // Remove highlights
+                const highlighted = op.element.querySelectorAll('.search-highlight');
+                highlighted.forEach(el => {
+                    el.outerHTML = el.innerHTML;
+                });
+            });
+            
+            // Show all tag sections
+            const tagSections = document.querySelectorAll('.opblock-tag-section');
+            tagSections.forEach(section => section.classList.remove('empty-tag'));
+        }
+        
+        function setSearchFilter(term) {
+            const searchInput = document.getElementById('apiSearch');
+            searchInput.value = term;
+            searchInput.focus();
+            performSearch(term);
+        }
+        
+        // Initialize Swagger UI
         window.onload = function() {
             const ui = SwaggerUIBundle({
                 url: '/swagger.json',
@@ -771,7 +1154,10 @@ def register_swagger_routes(app: Flask):
                 defaultModelExpandDepth: 2,
                 displayRequestDuration: true,
                 tryItOutEnabled: true,
-                supportedSubmitMethods: ['get', 'post', 'put', 'delete', 'patch', 'head', 'options']
+                supportedSubmitMethods: ['get', 'post', 'put', 'delete', 'patch', 'head', 'options'],
+                onComplete: function() {
+                    setupSearch();
+                }
             });
         };
     </script>
@@ -781,6 +1167,30 @@ def register_swagger_routes(app: Flask):
         return swagger_html
     
     @app.route('/swagger.json')
+    @swagger_route(
+        summary="OpenAPI Specification",
+        description="Serve the OpenAPI 3.0 specification as JSON with caching and rate limiting.",
+        tags=["Documentation"],
+        responses={
+            200: {
+                "description": "OpenAPI specification",
+                "content": {
+                    "application/json": {
+                        "schema": {"type": "object"}
+                    }
+                }
+            },
+            429: {
+                "description": "Rate limit exceeded",
+                "content": {
+                    "application/json": {
+                        "schema": COMMON_SCHEMAS["error_response"]
+                    }
+                }
+            }
+        },
+        security=get_auth_security()
+    )
     @login_required
     def swagger_json():
         """Serve OpenAPI specification as JSON with caching and rate limiting."""
@@ -813,6 +1223,44 @@ def register_swagger_routes(app: Flask):
         return response
     
     @app.route('/api/swagger/routes')
+    @swagger_route(
+        summary="List Documented Routes",
+        description="List all routes and their documentation status with cache statistics.",
+        tags=["Documentation", "Admin"],
+        responses={
+            200: {
+                "description": "Routes documentation status",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "routes": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "path": {"type": "string"},
+                                            "methods": {"type": "array", "items": {"type": "string"}},
+                                            "endpoint": {"type": "string"},
+                                            "documented": {"type": "boolean"},
+                                            "summary": {"type": "string"},
+                                            "tags": {"type": "array", "items": {"type": "string"}}
+                                        }
+                                    }
+                                },
+                                "total_routes": {"type": "integer"},
+                                "documented_routes": {"type": "integer"},
+                                "undocumented_routes": {"type": "integer"},
+                                "cache_stats": {"type": "object"}
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        security=get_auth_security()
+    )
     @login_required
     def list_documented_routes():
         """List all routes and their documentation status."""
@@ -847,6 +1295,29 @@ def register_swagger_routes(app: Flask):
         })
     
     @app.route('/api/swagger/cache', methods=['GET', 'DELETE'])
+    @swagger_route(
+        summary="Swagger Cache Management",
+        description="Manage swagger specification cache - get cache statistics or clear cache.",
+        tags=["Documentation", "Admin"],
+        responses={
+            200: {
+                "description": "Cache operation successful",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "cache_stats": {"type": "object"},
+                                "message": {"type": "string"},
+                                "timestamp": {"type": "string"}
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        security=get_auth_security()
+    )
     @login_required
     def swagger_cache_management():
         """Manage swagger spec cache."""
